@@ -1,0 +1,37 @@
+@inherits LayoutComponentBase
+@inject AuthApiClient AuthApiClient
+@inject NavigationManager Navigation
+
+<MudThemeProvider />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="1">
+        <MudText Typo="Typo.h6" Class="ml-2">CrossLedger</MudText>
+        <MudSpacer />
+        <AuthorizeView>
+            <Authorized>
+                <MudText Class="mr-4" Typo="Typo.body2">@context.User.FindFirst("email")?.Value</MudText>
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" OnClick="LogoutAsync">Log out</MudButton>
+            </Authorized>
+            <NotAuthorized>
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/login">Log in</MudButton>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudAppBar>
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.Large" Class="mt-6">
+            @Body
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+
+@code {
+    private async Task LogoutAsync()
+    {
+        await AuthApiClient.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+}

@@ -1,0 +1,66 @@
+@page "/login"
+@inject AuthApiClient AuthApiClient
+@inject NavigationManager Navigation
+
+<PageTitle>Log in - CrossLedger</PageTitle>
+
+<MudPaper Class="pa-8 mx-auto mt-8" Style="max-width: 420px;" Elevation="2">
+    <MudText Typo="Typo.h5" GutterBottom="true">Log in</MudText>
+
+    <MudForm @ref="_form" Model="_model">
+        <MudTextField @bind-Value="_model.Email" Label="Email" InputType="InputType.Email" Required="true" />
+        <MudTextField @bind-Value="_model.Password" Label="Password" InputType="InputType.Password" Required="true" Class="mt-4" />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                   OnClick="SubmitAsync" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Logging in..." : "Log in")
+        </MudButton>
+    </MudForm>
+
+    <MudText Typo="Typo.body2" Class="mt-4">
+        Don't have an account? <MudLink Href="/register">Register</MudLink>
+    </MudText>
+</MudPaper>
+
+@code {
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
+    private MudForm _form = null!;
+    private readonly LoginModel _model = new();
+    private string? _error;
+    private bool _isSubmitting;
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_form.IsValid)
+            return;
+
+        _isSubmitting = true;
+        _error = null;
+
+        var result = await AuthApiClient.LoginAsync(_model.Email, _model.Password);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.Error;
+            return;
+        }
+
+        Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : Uri.UnescapeDataString(ReturnUrl));
+    }
+
+    private sealed class LoginModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+    }
+}

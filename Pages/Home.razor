@@ -1,0 +1,12 @@
+@page "/"
+@attribute [Authorize]
+
+<PageTitle>CrossLedger</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Welcome back</MudText>
+<MudText Typo="Typo.body1">
+    Logged in as <strong><AuthorizeView Context="authContext">@authContext.User.FindFirst("email")?.Value</AuthorizeView></strong>.
+</MudText>
+<MudText Typo="Typo.body2" Class="mt-2">
+    The wallet dashboard, send-money flow and the rest of the screens land in the next increment.
+</MudText>
