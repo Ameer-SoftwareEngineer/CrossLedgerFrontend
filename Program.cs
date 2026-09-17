@@ -1,5 +1,6 @@
 using Blazored.LocalStorage;
 using CrossLedgerFrontend;
+using CrossLedgerFrontend.Api;
 using CrossLedgerFrontend.Auth;
 using CrossLedgerFrontend.Fx;
 using CrossLedgerFrontend.Security;
@@ -14,10 +15,7 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// The API runs on its own origin in development (its own launchSettings:
-// http://localhost:5011) - the WASM app cannot just point HttpClient at its own
-// BaseAddress like the default template does, since it isn't the API's host.
-const string ApiBaseAddress = "http://localhost:5011/";
+const string ApiBaseAddress = ApiConfig.BaseAddress;
 
 builder.Services.AddMudServices();
 builder.Services.AddBlazoredLocalStorage();
@@ -46,5 +44,6 @@ builder.Services.AddScoped<WalletApiClient>();
 builder.Services.AddScoped<QuoteApiClient>();
 builder.Services.AddScoped<TransferApiClient>();
 builder.Services.AddScoped<TwoFactorApiClient>();
+builder.Services.AddScoped<FxRatesApiClient>();
 
 await builder.Build().RunAsync();
