@@ -1,6 +1,7 @@
 @page "/transactions"
 @attribute [Authorize]
 @inject WalletApiClient WalletApiClient
+@inject TransferApiClient TransferApiClient
 @inject IJSRuntime JsRuntime
 
 <PageTitle>Transaction history - CrossLedger</PageTitle>
@@ -48,12 +49,18 @@ else
 
     <MudTable @ref="_table" ServerData="LoadServerDataAsync" Hover="true" Dense="true">
         <HeaderContent>
+            <MudTh Style="width: 40px;"></MudTh>
             <MudTh>Posted</MudTh>
             <MudTh>Direction</MudTh>
             <MudTh Style="text-align: right;">Amount</MudTh>
             <MudTh>Transfer</MudTh>
         </HeaderContent>
         <RowTemplate>
+            <MudTd Style="width: 40px;">
+                <MudIconButton
+                    Icon="@(_expandedTransferIds.Contains(context.TransferId) ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                    Size="Size.Small" OnClick="@(() => ToggleLedgerEntriesAsync(context.TransferId))" />
+            </MudTd>
             <MudTd DataLabel="Posted">@context.PostedAt.ToLocalTime().ToString("g")</MudTd>
             <MudTd DataLabel="Direction">
                 <MudChip T="string" Color="@(context.Direction == "Credit" ? Color.Success : Color.Default)" Size="Size.Small">@context.Direction</MudChip>
@@ -61,6 +68,44 @@ else
             <MudTd DataLabel="Amount" Style="text-align: right;">@FormatSignedAmount(context)</MudTd>
             <MudTd DataLabel="Transfer">@context.TransferId</MudTd>
         </RowTemplate>
+        <ChildRowContent>
+            @if (_expandedTransferIds.Contains(context.TransferId))
+            {
+                <MudTr>
+                    <MudTd colspan="5">
+                        @if (_loadingTransferIds.Contains(context.TransferId))
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                        }
+                        else if (_ledgerEntriesCache.TryGetValue(context.TransferId, out var ledgerEntries) && ledgerEntries.Count > 0)
+                        {
+                            <MudText Typo="Typo.body2" Class="mb-2"><strong>Double-entry breakdown</strong> - every posting this transfer wrote:</MudText>
+                            <MudSimpleTable Dense="true" Elevation="0">
+                                <thead>
+                                    <tr><th>Wallet</th><th>Direction</th><th style="text-align: right;">Amount</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var entry in ledgerEntries)
+                                    {
+                                        <tr>
+                                            <td>@entry.WalletId</td>
+                                            <td>
+                                                <MudChip T="string" Color="@(entry.Direction == "Credit" ? Color.Success : Color.Default)" Size="Size.Small">@entry.Direction</MudChip>
+                                            </td>
+                                            <td style="text-align: right;">@FormatLedgerEntryAmount(entry)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2">Could not load the ledger breakdown for this transfer.</MudText>
+                        }
+                    </MudTd>
+                </MudTr>
+            }
+        </ChildRowContent>
         <NoRecordsContent>
             <MudText>No transactions in this range yet.</MudText>
         </NoRecordsContent>
@@ -82,6 +127,10 @@ else
     private List<TransactionHistoryEntryResponse> _lastPage = new();
     private bool _isExporting;
     private string? _error;
+
+    private readonly HashSet<Guid> _expandedTransferIds = new();
+    private readonly HashSet<Guid> _loadingTransferIds = new();
+    private readonly Dictionary<Guid, List<LedgerEntryDetailResponse>> _ledgerEntriesCache = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -135,6 +184,29 @@ else
 
     private static string FormatSignedAmount(TransactionHistoryEntryResponse entry) =>
         $"{(entry.SignedAmount >= 0 ? "+" : string.Empty)}{SupportedCurrencies.Format(entry.SignedAmount, entry.Currency)} {entry.Currency}";
+
+    private static string FormatLedgerEntryAmount(LedgerEntryDetailResponse entry) =>
+        $"{(entry.SignedAmount >= 0 ? "+" : string.Empty)}{SupportedCurrencies.Format(entry.SignedAmount, entry.Currency)} {entry.Currency}";
+
+    private async Task ToggleLedgerEntriesAsync(Guid transferId)
+    {
+        // HashSet.Add returns false when the item was already present - that's the
+        // "already expanded" case, so this click means collapse instead.
+        if (!_expandedTransferIds.Add(transferId))
+        {
+            _expandedTransferIds.Remove(transferId);
+            return;
+        }
+
+        if (_ledgerEntriesCache.ContainsKey(transferId))
+            return;
+
+        _loadingTransferIds.Add(transferId);
+        var result = await TransferApiClient.GetLedgerEntriesAsync(transferId);
+        _loadingTransferIds.Remove(transferId);
+
+        _ledgerEntriesCache[transferId] = result.IsSuccess ? result.Value!.ToList() : new List<LedgerEntryDetailResponse>();
+    }
 
     private async Task ExportCsvAsync()
     {

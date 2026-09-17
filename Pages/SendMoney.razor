@@ -25,7 +25,7 @@ else if (_wallets.Count == 0)
 else if (_quote is null)
 {
     <MudPaper Class="pa-6" Style="max-width: 480px;" Elevation="2">
-        <MudSelect T="Guid" @bind-Value="_sourceWalletId" Label="From wallet">
+        <MudSelect T="Guid" @bind-Value="_sourceWalletId" Label="From wallet" @bind-Value:after="OnSourceWalletChanged">
             @foreach (var wallet in _wallets)
             {
                 <MudSelectItem T="Guid" Value="@wallet.WalletId">@wallet.Currency (@SupportedCurrencies.Format(wallet.Balance, wallet.Currency) available)</MudSelectItem>
@@ -118,6 +118,17 @@ else
             _sourceWalletId = _wallets[0].WalletId;
             _targetCurrency = TargetCurrencies.FirstOrDefault();
         }
+    }
+
+    /// <summary>_targetCurrency is a plain field, not computed from _sourceWalletId - live
+    /// testing found that switching the source wallet without this left it pointing at a
+    /// currency TargetCurrencies no longer even offers (once it equals the new source
+    /// currency), which the select then displayed misleadingly while silently submitting
+    /// a fromCurrency == toCurrency quote request that the server correctly rejected.</summary>
+    private void OnSourceWalletChanged()
+    {
+        if (_targetCurrency == SourceCurrency)
+            _targetCurrency = TargetCurrencies.FirstOrDefault();
     }
 
     private async Task GetQuoteAsync()

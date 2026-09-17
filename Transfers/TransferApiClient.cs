@@ -47,4 +47,21 @@ public sealed class TransferApiClient
             ?? throw new InvalidOperationException("Transfer posted but the response body was empty.");
         return ApiResult<TransferResponse>.Success(transfer);
     }
+
+    public async Task<ApiResult<IReadOnlyList<LedgerEntryDetailResponse>>> GetLedgerEntriesAsync(Guid transferId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync($"api/v1/transfers/{transferId}/ledger-entries"));
+        if (response is null)
+            return ApiResult<IReadOnlyList<LedgerEntryDetailResponse>>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<IReadOnlyList<LedgerEntryDetailResponse>>.Failed(code, message);
+        }
+
+        var entries = await response.Content.ReadFromJsonAsync<List<LedgerEntryDetailResponse>>()
+            ?? new List<LedgerEntryDetailResponse>();
+        return ApiResult<IReadOnlyList<LedgerEntryDetailResponse>>.Success(entries);
+    }
 }

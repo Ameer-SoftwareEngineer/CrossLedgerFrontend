@@ -9,3 +9,6 @@ public sealed record TransferResponse(
     decimal TargetAmount,
     string TargetCurrency,
     DateTimeOffset PostedAt);
+
+public sealed record LedgerEntryDetailResponse(
+    Guid Id, Guid TransferId, Guid WalletId, string Direction, decimal Amount, string Currency, decimal SignedAmount, DateTimeOffset PostedAt);
