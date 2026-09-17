@@ -1,0 +1,137 @@
+@page "/security"
+@attribute [Authorize]
+@inject TwoFactorApiClient TwoFactorApiClient
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Security - CrossLedger</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Security</MudText>
+
+<MudPaper Class="pa-6" Style="max-width: 520px;" Elevation="2">
+    <MudText Typo="Typo.h6" GutterBottom="true">Authenticator app (TOTP)</MudText>
+
+    @if (_recoveryCodes is not null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-4">Two-factor authentication is enabled.</MudAlert>
+        <MudText Typo="Typo.body2" Class="mb-2">
+            Save these recovery codes somewhere safe - each can be used once if you lose access to your authenticator app.
+        </MudText>
+        <MudPaper Class="pa-4" Elevation="0" Outlined="true">
+            @foreach (var recoveryCode in _recoveryCodes)
+            {
+                <MudText Typo="Typo.body1" Style="font-family: monospace;">@recoveryCode</MudText>
+            }
+        </MudPaper>
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="mt-6" OnClick="DisableAsync" Disabled="_isDisabling">
+            @(_isDisabling ? "Disabling..." : "Disable two-factor authentication")
+        </MudButton>
+    }
+    else if (_enrollment is null)
+    {
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Add an authenticator app (Google Authenticator, Authy, etc.) as a second factor. Sensitive actions like large
+            transfers will ask for a fresh code once this is set up.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="BeginEnrollmentAsync" Disabled="_isBeginning">
+            @(_isBeginning ? "Starting..." : "Set up two-factor authentication")
+        </MudButton>
+    }
+    else
+    {
+        <MudText Typo="Typo.body2" Class="mb-2">
+            Add this key to your authenticator app (as a "manual entry" / "setup key"), then enter the 6-digit code it shows.
+        </MudText>
+        <MudPaper Class="pa-4" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.body2">Account: your CrossLedger login email</MudText>
+            <MudText Typo="Typo.body1" Style="font-family: monospace; word-break: break-all;">@_enrollment.Secret</MudText>
+        </MudPaper>
+        <MudTextField @bind-Value="_confirmCode" Label="6-digit code" MaxLength="6" Class="mt-4" Immediate="true" />
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-4" OnClick="ConfirmEnrollmentAsync" Disabled="_isConfirming">
+            @(_isConfirming ? "Confirming..." : "Confirm and enable")
+        </MudButton>
+    }
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+    }
+</MudPaper>
+
+@code {
+    private BeginTotpEnrollmentResponse? _enrollment;
+    private IReadOnlyList<string>? _recoveryCodes;
+    private string _confirmCode = string.Empty;
+    private bool _isBeginning;
+    private bool _isConfirming;
+    private bool _isDisabling;
+    private string? _error;
+
+    private async Task BeginEnrollmentAsync()
+    {
+        _isBeginning = true;
+        _error = null;
+
+        var result = await TwoFactorApiClient.BeginEnrollmentAsync();
+
+        _isBeginning = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _enrollment = result.Value;
+    }
+
+    private async Task ConfirmEnrollmentAsync()
+    {
+        if (_enrollment is null)
+            return;
+
+        _isConfirming = true;
+        _error = null;
+
+        var result = await TwoFactorApiClient.ConfirmEnrollmentAsync(_enrollment.Secret, _confirmCode);
+
+        _isConfirming = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _recoveryCodes = result.Value!.RecoveryCodes;
+        Snackbar.Add("Two-factor authentication enabled.", Severity.Success);
+    }
+
+    private async Task DisableAsync()
+    {
+        _error = null;
+
+        var parameters = new DialogParameters<StepUpDialog> { { x => x.Operation, "DisableTwoFactor" } };
+        var dialog = await DialogService.ShowAsync<StepUpDialog>("Verify it's you", parameters);
+        var dialogResult = await dialog.Result;
+
+        if (dialogResult is not { Canceled: false } || dialogResult.Data is not string token)
+            return;
+
+        _isDisabling = true;
+        var result = await TwoFactorApiClient.DisableAsync(token);
+        _isDisabling = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _recoveryCodes = null;
+        _enrollment = null;
+        Snackbar.Add("Two-factor authentication disabled.", Severity.Success);
+    }
+}

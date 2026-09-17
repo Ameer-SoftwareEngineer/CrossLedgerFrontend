@@ -1,0 +1,50 @@
+@inject TwoFactorApiClient TwoFactorApiClient
+
+<MudDialog>
+    <DialogContent>
+        <MudText Class="mb-4">This action needs a fresh code from your authenticator app.</MudText>
+        <MudTextField @bind-Value="_code" Label="6-digit code" MaxLength="6" Immediate="true" AutoFocus="true" />
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Verifying..." : "Verify")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+
+    /// <summary>The StepUpOperation enum value as a string, e.g. "HighValueTransfer" -
+    /// must match the operation the server-side [RequireStepUp] attribute is scoped to.</summary>
+    [Parameter] public string Operation { get; set; } = string.Empty;
+
+    private string _code = string.Empty;
+    private string? _error;
+    private bool _isSubmitting;
+
+    private async Task SubmitAsync()
+    {
+        _isSubmitting = true;
+        _error = null;
+
+        var result = await TwoFactorApiClient.RequestStepUpAsync(Operation, _code);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(result.Value!.StepUpToken));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

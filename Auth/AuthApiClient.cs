@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using CrossLedgerFrontend.Api;
 using CrossLedgerFrontend.Contracts;
 
 namespace CrossLedgerFrontend.Auth;
@@ -24,7 +25,9 @@ public sealed class AuthApiClient
 
     public async Task<AuthResult> RegisterAsync(string email, string password)
     {
-        var response = await _http.PostAsJsonAsync("api/v1/auth/register", new RegisterRequest(email, password));
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsJsonAsync("api/v1/auth/register", new RegisterRequest(email, password)));
+        if (response is null)
+            return AuthResult.Failed(HttpCall.NetworkErrorMessage);
 
         return response.IsSuccessStatusCode ? AuthResult.Success() : AuthResult.Failed(await ReadErrorAsync(response));
     }
@@ -34,7 +37,9 @@ public sealed class AuthApiClient
     /// page without waiting for a page reload to pick up the new identity.</summary>
     public async Task<AuthResult> LoginAsync(string email, string password)
     {
-        var response = await _http.PostAsJsonAsync("api/v1/auth/login", new LoginRequest(email, password));
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsJsonAsync("api/v1/auth/login", new LoginRequest(email, password)));
+        if (response is null)
+            return AuthResult.Failed(HttpCall.NetworkErrorMessage);
 
         if (!response.IsSuccessStatusCode)
             return AuthResult.Failed(await ReadErrorAsync(response));

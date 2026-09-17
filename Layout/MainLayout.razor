@@ -10,6 +10,13 @@
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudText Typo="Typo.h6" Class="ml-2">CrossLedger</MudText>
+        <AuthorizeView>
+            <Authorized>
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/" Class="ml-6">Wallets</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/send">Send money</MudButton>
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/security">Security</MudButton>
+            </Authorized>
+        </AuthorizeView>
         <MudSpacer />
         <AuthorizeView>
             <Authorized>
