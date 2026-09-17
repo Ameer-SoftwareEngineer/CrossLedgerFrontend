@@ -1,6 +1,10 @@
 using Blazored.LocalStorage;
 using CrossLedgerFrontend;
 using CrossLedgerFrontend.Auth;
+using CrossLedgerFrontend.Fx;
+using CrossLedgerFrontend.Security;
+using CrossLedgerFrontend.Transfers;
+using CrossLedgerFrontend.Wallets;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -37,5 +41,10 @@ builder.Services.AddScoped<AuthApiClient>(sp => new AuthApiClient(
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("Anonymous"),
     sp.GetRequiredService<TokenStore>(),
     sp.GetRequiredService<CrossLedgerAuthenticationStateProvider>()));
+
+builder.Services.AddScoped<WalletApiClient>();
+builder.Services.AddScoped<QuoteApiClient>();
+builder.Services.AddScoped<TransferApiClient>();
+builder.Services.AddScoped<TwoFactorApiClient>();
 
 await builder.Build().RunAsync();

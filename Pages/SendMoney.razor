@@ -1,0 +1,269 @@
+@page "/send"
+@attribute [Authorize]
+@implements IDisposable
+@inject WalletApiClient WalletApiClient
+@inject QuoteApiClient QuoteApiClient
+@inject TransferApiClient TransferApiClient
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Send money - CrossLedger</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Send money</MudText>
+
+@if (_isLoadingWallets)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_wallets.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">
+        You need at least one wallet before you can send money. Add one from the <MudLink Href="/">Wallets</MudLink> page.
+    </MudAlert>
+}
+else if (_quote is null)
+{
+    <MudPaper Class="pa-6" Style="max-width: 480px;" Elevation="2">
+        <MudSelect T="Guid" @bind-Value="_sourceWalletId" Label="From wallet">
+            @foreach (var wallet in _wallets)
+            {
+                <MudSelectItem T="Guid" Value="@wallet.WalletId">@wallet.Currency (@SupportedCurrencies.Format(wallet.Balance, wallet.Currency) available)</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="string" @bind-Value="_targetCurrency" Label="To currency" Class="mt-4">
+            @foreach (var currency in TargetCurrencies)
+            {
+                <MudSelectItem T="string" Value="@currency">@currency</MudSelectItem>
+            }
+        </MudSelect>
+        <MudNumericField T="decimal" @bind-Value="_amount" Label="Amount" Min="0.01m" Class="mt-4" />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                   OnClick="GetQuoteAsync" Disabled="_isQuoting || _targetCurrency is null">
+            @(_isQuoting ? "Getting quote..." : "Get quote")
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Class="pa-6" Style="max-width: 480px;" Elevation="2">
+        <MudText Typo="Typo.body1">@_amount.ToString("N2") @SourceCurrency &rarr; @_quote.ToCurrency</MudText>
+        <MudText Typo="Typo.body2" Class="mt-1">Rate: @_quote.Rate.ToString("N4")</MudText>
+        <MudText Typo="Typo.h4" Class="mt-2">@SupportedCurrencies.Format(TargetAmountPreview, _quote.ToCurrency) @_quote.ToCurrency</MudText>
+
+        <MudProgressLinear Color="@(SecondsRemaining <= 10 ? Color.Error : Color.Primary)" Value="@CountdownPercent" Class="mt-6" />
+        <MudText Typo="Typo.body2" Class="mt-2">
+            @(SecondsRemaining > 0 ? $"Quote expires in {SecondsRemaining}s" : "Quote expired - request a new one.")
+        </MudText>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+
+        <MudStack Row="true" Class="mt-6" Spacing="2">
+            <MudButton Variant="Variant.Outlined" OnClick="ResetToQuoteForm">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConfirmAsync" Disabled="_isConfirming || SecondsRemaining <= 0">
+                @(_isConfirming ? "Sending..." : "Confirm transfer")
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    private List<WalletSummaryResponse> _wallets = new();
+    private bool _isLoadingWallets = true;
+
+    private Guid _sourceWalletId;
+    private string? _targetCurrency;
+    private decimal _amount = 10m;
+
+    private QuoteResponse? _quote;
+    private string _idempotencyKey = Guid.NewGuid().ToString();
+    private System.Threading.Timer? _countdownTimer;
+    private int SecondsRemaining;
+
+    private bool _isQuoting;
+    private bool _isConfirming;
+    private string? _error;
+
+    private string SourceCurrency => _wallets.FirstOrDefault(w => w.WalletId == _sourceWalletId)?.Currency ?? string.Empty;
+
+    private IEnumerable<string> TargetCurrencies => SupportedCurrencies.All.Where(c => c != SourceCurrency);
+
+    private decimal TargetAmountPreview => _quote is null ? 0 : Math.Round(_amount * _quote.Rate, 2);
+
+    private double CountdownPercent => Math.Clamp(SecondsRemaining / 30.0 * 100.0, 0, 100);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await WalletApiClient.ListMineAsync();
+        _isLoadingWallets = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
+        if (_wallets.Count > 0)
+        {
+            _sourceWalletId = _wallets[0].WalletId;
+            _targetCurrency = TargetCurrencies.FirstOrDefault();
+        }
+    }
+
+    private async Task GetQuoteAsync()
+    {
+        if (_targetCurrency is null)
+            return;
+
+        _isQuoting = true;
+        _error = null;
+
+        var result = await QuoteApiClient.CreateAsync(SourceCurrency, _targetCurrency, _amount);
+
+        _isQuoting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _quote = result.Value;
+        _idempotencyKey = Guid.NewGuid().ToString();
+        StartCountdown();
+    }
+
+    private void StartCountdown()
+    {
+        _countdownTimer?.Dispose();
+        UpdateSecondsRemaining();
+        _countdownTimer = new System.Threading.Timer(_ =>
+        {
+            UpdateSecondsRemaining();
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void UpdateSecondsRemaining()
+    {
+        if (_quote is null)
+        {
+            SecondsRemaining = 0;
+            return;
+        }
+
+        var remaining = _quote.ExpiresAt - DateTimeOffset.UtcNow;
+        SecondsRemaining = Math.Max(0, (int)Math.Ceiling(remaining.TotalSeconds));
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (_quote is null)
+            return;
+
+        _isConfirming = true;
+        _error = null;
+
+        var targetWalletId = await ResolveTargetWalletIdAsync();
+        if (targetWalletId is null)
+        {
+            _isConfirming = false;
+            return;
+        }
+
+        var request = new CreateTransferRequest(_quote.QuoteId, _sourceWalletId, targetWalletId.Value, _amount);
+        var result = await TransferApiClient.CreateAsync(request, _idempotencyKey);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync();
+            if (token is null)
+            {
+                _isConfirming = false;
+                _error = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await TransferApiClient.CreateAsync(request, _idempotencyKey, token);
+        }
+
+        _isConfirming = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _countdownTimer?.Dispose();
+        Snackbar.Add(
+            $"Sent {SupportedCurrencies.Format(result.Value!.SourceAmount, result.Value.SourceCurrency)} {result.Value.SourceCurrency} " +
+            $"-> {SupportedCurrencies.Format(result.Value.TargetAmount, result.Value.TargetCurrency)} {result.Value.TargetCurrency}.",
+            Severity.Success);
+        await ReloadWalletsAsync();
+        ResetToQuoteForm();
+    }
+
+    /// <summary>The user might not hold the target currency yet - open a wallet for it on
+    /// the fly rather than dead-ending a transfer the Wallets page would let them set up
+    /// anyway with one extra click.</summary>
+    private async Task<Guid?> ResolveTargetWalletIdAsync()
+    {
+        var existing = _wallets.FirstOrDefault(w => w.Currency == _quote!.ToCurrency);
+        if (existing is not null)
+            return existing.WalletId;
+
+        var ownerId = await GetOwnerIdAsync();
+        var created = await WalletApiClient.CreateAsync(ownerId, _quote!.ToCurrency);
+        if (!created.IsSuccess)
+        {
+            _error = created.ErrorMessage;
+            return null;
+        }
+
+        await ReloadWalletsAsync();
+        return created.Value!.WalletId;
+    }
+
+    private async Task<string?> RequestStepUpTokenAsync()
+    {
+        var parameters = new DialogParameters<StepUpDialog> { { x => x.Operation, "HighValueTransfer" } };
+        var dialog = await DialogService.ShowAsync<StepUpDialog>("Verify it's you", parameters);
+        var result = await dialog.Result;
+
+        return result is { Canceled: false } ? result.Data as string : null;
+    }
+
+    private async Task<Guid> GetOwnerIdAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        return Guid.Parse(authState.User.FindFirst("sub")!.Value);
+    }
+
+    private async Task ReloadWalletsAsync()
+    {
+        var result = await WalletApiClient.ListMineAsync();
+        if (result.IsSuccess)
+            _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
+    }
+
+    private void ResetToQuoteForm()
+    {
+        _countdownTimer?.Dispose();
+        _countdownTimer = null;
+        _quote = null;
+        _error = null;
+    }
+
+    public void Dispose() => _countdownTimer?.Dispose();
+}
