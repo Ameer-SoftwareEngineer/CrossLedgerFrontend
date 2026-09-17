@@ -1,0 +1,153 @@
+@page "/transactions"
+@attribute [Authorize]
+@inject WalletApiClient WalletApiClient
+@inject IJSRuntime JsRuntime
+
+<PageTitle>Transaction history - CrossLedger</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Transaction history</MudText>
+
+@if (_isLoadingWallets)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_wallets.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">
+        You don't have any wallets yet. Add one from the <MudLink Href="/">Wallets</MudLink> page.
+    </MudAlert>
+}
+else
+{
+    <MudGrid Class="mb-4">
+        <MudItem xs="12" sm="4" md="3">
+            <MudSelect T="Guid" @bind-Value="_selectedWalletId" Label="Wallet" @bind-Value:after="OnFilterChangedAsync">
+                @foreach (var wallet in _wallets)
+                {
+                    <MudSelectItem T="Guid" Value="@wallet.WalletId">@wallet.Currency</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4" md="3">
+            <MudDatePicker Label="From" @bind-Date="_fromDate" @bind-Date:after="OnFilterChangedAsync" Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="4" md="3">
+            <MudDatePicker Label="To" @bind-Date="_toDate" @bind-Date:after="OnFilterChangedAsync" Clearable="true" />
+        </MudItem>
+        <MudItem xs="12" md="3" Class="d-flex align-center">
+            <MudButton Variant="Variant.Outlined" OnClick="ExportCsvAsync" Disabled="_isExporting || _lastPage.Count == 0">
+                @(_isExporting ? "Exporting..." : "Export CSV")
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+    }
+
+    <MudTable @ref="_table" ServerData="LoadServerDataAsync" Hover="true" Dense="true">
+        <HeaderContent>
+            <MudTh>Posted</MudTh>
+            <MudTh>Direction</MudTh>
+            <MudTh Style="text-align: right;">Amount</MudTh>
+            <MudTh>Transfer</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Posted">@context.PostedAt.ToLocalTime().ToString("g")</MudTd>
+            <MudTd DataLabel="Direction">
+                <MudChip T="string" Color="@(context.Direction == "Credit" ? Color.Success : Color.Default)" Size="Size.Small">@context.Direction</MudChip>
+            </MudTd>
+            <MudTd DataLabel="Amount" Style="text-align: right;">@FormatSignedAmount(context)</MudTd>
+            <MudTd DataLabel="Transfer">@context.TransferId</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText>No transactions in this range yet.</MudText>
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    private List<WalletSummaryResponse> _wallets = new();
+    private bool _isLoadingWallets = true;
+    private Guid _selectedWalletId;
+
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+
+    private MudTable<TransactionHistoryEntryResponse> _table = null!;
+    private List<TransactionHistoryEntryResponse> _lastPage = new();
+    private bool _isExporting;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await WalletApiClient.ListMineAsync();
+        _isLoadingWallets = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
+        if (_wallets.Count > 0)
+            _selectedWalletId = _wallets[0].WalletId;
+    }
+
+    private async Task OnFilterChangedAsync()
+    {
+        if (_table is not null)
+            await _table.ReloadServerData();
+    }
+
+    private async Task<TableData<TransactionHistoryEntryResponse>> LoadServerDataAsync(TableState state, CancellationToken cancellationToken)
+    {
+        if (_wallets.Count == 0)
+            return new TableData<TransactionHistoryEntryResponse> { Items = Array.Empty<TransactionHistoryEntryResponse>(), TotalItems = 0 };
+
+        _error = null;
+
+        var fromDate = _fromDate is null ? (DateTimeOffset?)null : new DateTimeOffset(DateTime.SpecifyKind(_fromDate.Value, DateTimeKind.Utc));
+        var toDate = _toDate is null ? (DateTimeOffset?)null : new DateTimeOffset(DateTime.SpecifyKind(_toDate.Value.AddDays(1), DateTimeKind.Utc));
+
+        var result = await WalletApiClient.GetTransactionsAsync(_selectedWalletId, state.Page + 1, state.PageSize, fromDate, toDate);
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            _lastPage = new List<TransactionHistoryEntryResponse>();
+            StateHasChanged();
+            return new TableData<TransactionHistoryEntryResponse> { Items = _lastPage, TotalItems = 0 };
+        }
+
+        _lastPage = result.Value!.Entries.ToList();
+        // MudTable invokes ServerData from its own render cycle, not ours - without this,
+        // the Export CSV button's Disabled binding (which reads _lastPage) never
+        // re-evaluates after the first, empty-list render.
+        StateHasChanged();
+        return new TableData<TransactionHistoryEntryResponse> { Items = _lastPage, TotalItems = result.Value.TotalCount };
+    }
+
+    private static string FormatSignedAmount(TransactionHistoryEntryResponse entry) =>
+        $"{(entry.SignedAmount >= 0 ? "+" : string.Empty)}{SupportedCurrencies.Format(entry.SignedAmount, entry.Currency)} {entry.Currency}";
+
+    private async Task ExportCsvAsync()
+    {
+        _isExporting = true;
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("PostedAt,Direction,Amount,Currency,SignedAmount,TransferId");
+        foreach (var entry in _lastPage)
+        {
+            csv.AppendLine($"{entry.PostedAt:O},{entry.Direction},{entry.Amount},{entry.Currency},{entry.SignedAmount},{entry.TransferId}");
+        }
+
+        await JsRuntime.InvokeVoidAsync("downloadFile", "transactions.csv", csv.ToString(), "text/csv");
+        _isExporting = false;
+    }
+}
