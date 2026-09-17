@@ -1,0 +1,202 @@
+@page "/fx-rates"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject FxRatesApiClient FxRatesApiClient
+@inject TokenStore TokenStore
+
+<PageTitle>FX rates - CrossLedger</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">FX rates</MudText>
+
+<MudText Typo="Typo.h6" GutterBottom="true">Live ticker</MudText>
+<MudText Typo="Typo.body2" Class="mb-4">
+    @(_connectionState switch
+    {
+        ConnectionState.Connecting => "Connecting...",
+        ConnectionState.Connected => "Live - updates over SignalR.",
+        _ => "Disconnected - showing the last rates received.",
+    })
+</MudText>
+
+<MudGrid Class="mb-8">
+    @foreach (var pair in TickerPairOrder)
+    {
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Class="pa-4" Elevation="2">
+                <MudText Typo="Typo.subtitle2">@pair.From / @pair.To</MudText>
+                @if (_latestRates.TryGetValue(pair, out var rate))
+                {
+                    <MudText Typo="Typo.h5">@rate.MidMarketRate.ToString("N4")</MudText>
+                    <MudText Typo="Typo.caption">
+                        As of @rate.AsOf.ToLocalTime().ToString("T")
+                        @(rate.IsStale ? " (stale)" : "")
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.h5">-</MudText>
+                    <MudText Typo="Typo.caption">Waiting for the first update...</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
+
+<MudText Typo="Typo.h6" GutterBottom="true">30-day history</MudText>
+<MudGrid Class="mb-4">
+    <MudItem xs="6" sm="3" md="2">
+        <MudSelect T="string" @bind-Value="_historyFrom" Label="From" @bind-Value:after="LoadHistoryAsync">
+            @foreach (var currency in SupportedCurrencies.All)
+            {
+                <MudSelectItem T="string" Value="@currency">@currency</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+    <MudItem xs="6" sm="3" md="2">
+        <MudSelect T="string" @bind-Value="_historyTo" Label="To" @bind-Value:after="LoadHistoryAsync">
+            @foreach (var currency in SupportedCurrencies.All.Where(c => c != _historyFrom))
+            {
+                <MudSelectItem T="string" Value="@currency">@currency</MudSelectItem>
+            }
+        </MudSelect>
+    </MudItem>
+</MudGrid>
+
+@if (_isLoadingHistory)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_historyError is not null)
+{
+    <MudAlert Severity="Severity.Error">@_historyError</MudAlert>
+}
+else if (_chartSeries.Count == 0 || _chartSeries[0].Data.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">
+        No historical rate data yet for @_historyFrom/@_historyTo in the last 30 days. The scheduled rate-capture
+        job that feeds this chart hasn't been deployed in this environment yet - the live ticker above reads
+        current rates directly and doesn't depend on it.
+    </MudAlert>
+}
+else
+{
+    <MudTimeSeriesChart
+        ChartSeries="_chartSeries"
+        ChartOptions="_chartOptions"
+        Width="100%" Height="350px"
+        TimeLabelSpacing="TimeSpan.FromDays(3)"
+        TimeLabelFormat="MM/dd"
+        XAxisTitle="Date"
+        YAxisTitle="@($"{_historyFrom}/{_historyTo} close (x100)")" />
+}
+
+@code {
+    private static readonly (string From, string To)[] TickerPairOrder =
+    [
+        ("USD", "EUR"), ("USD", "GBP"), ("EUR", "GBP"), ("USD", "CAD"),
+    ];
+
+    private enum ConnectionState { Connecting, Connected, Disconnected }
+
+    private HubConnection? _hubConnection;
+    private ConnectionState _connectionState = ConnectionState.Connecting;
+    private readonly Dictionary<(string From, string To), FxRateUpdate> _latestRates = new();
+
+    private string _historyFrom = "USD";
+    private string _historyTo = "EUR";
+    private bool _isLoadingHistory;
+    private string? _historyError;
+    private List<TimeSeriesChartSeries> _chartSeries = new();
+    private ChartOptions _chartOptions = new() { YAxisRequireZeroPoint = false };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHistoryAsync();
+        await ConnectTickerAsync();
+    }
+
+    private async Task ConnectTickerAsync()
+    {
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl($"{ApiConfig.BaseAddress}hubs/fx-rates", options =>
+            {
+                options.AccessTokenProvider = () => TokenStore.GetAccessTokenAsync();
+            })
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hubConnection.On<FxRateUpdate>("RateUpdated", update =>
+        {
+            _latestRates[(update.FromCurrency, update.ToCurrency)] = update;
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hubConnection.Reconnecting += _ => { _connectionState = ConnectionState.Disconnected; return InvokeAsync(StateHasChanged); };
+        _hubConnection.Reconnected += _ => { _connectionState = ConnectionState.Connected; return InvokeAsync(StateHasChanged); };
+        _hubConnection.Closed += _ => { _connectionState = ConnectionState.Disconnected; return InvokeAsync(StateHasChanged); };
+
+        try
+        {
+            await _hubConnection.StartAsync();
+            _connectionState = ConnectionState.Connected;
+        }
+        catch
+        {
+            _connectionState = ConnectionState.Disconnected;
+        }
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        _isLoadingHistory = true;
+        _historyError = null;
+        StateHasChanged();
+
+        var toDate = DateOnly.FromDateTime(DateTime.UtcNow);
+        var fromDate = toDate.AddDays(-30);
+
+        var result = await FxRatesApiClient.GetOhlcAsync(_historyFrom, _historyTo, fromDate, toDate);
+
+        _isLoadingHistory = false;
+
+        if (!result.IsSuccess)
+        {
+            _historyError = result.ErrorMessage;
+            _chartSeries = new List<TimeSeriesChartSeries>();
+            return;
+        }
+
+        // ChartOptions.YAxisTicks is an int step size in data units - fine for values in
+        // the tens (its default of 20 assumes that), but an FX rate's whole range can be
+        // a fraction of 1 (e.g. USD/EUR moving between 1.08 and 1.15), which rendered as
+        // a flat line against a 0-20 axis with only "0" and "20" labelled. Plotting
+        // rate x100 (a "big figure", the same convention FX trading desks use) gives the
+        // tick-spacing integer something meaningful to work with instead.
+        const double displayScale = 100;
+        var scaledCloses = result.Value!.Select(p => (double)p.Close * displayScale).ToList();
+
+        _chartSeries = new List<TimeSeriesChartSeries>
+        {
+            new()
+            {
+                Name = "Close",
+                Data = result.Value!
+                    .Zip(scaledCloses, (p, scaled) => new TimeSeriesChartSeries.TimeValue(p.Date.ToDateTime(TimeOnly.MinValue), scaled))
+                    .ToList(),
+            },
+        };
+
+        var scaledRange = scaledCloses.Count > 0 ? scaledCloses.Max() - scaledCloses.Min() : 0;
+        _chartOptions = new ChartOptions
+        {
+            YAxisRequireZeroPoint = false,
+            YAxisTicks = Math.Max(1, (int)Math.Round(scaledRange / 5)),
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hubConnection is not null)
+            await _hubConnection.DisposeAsync();
+    }
+}
