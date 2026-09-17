@@ -20,6 +20,11 @@
                 <MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/security">Security</MudButton>
             </Authorized>
         </AuthorizeView>
+        <AuthorizeView Roles="Admin">
+            <Authorized>
+                <MudButton Variant="Variant.Text" Color="Color.Inherit" Href="/admin">Admin</MudButton>
+            </Authorized>
+        </AuthorizeView>
         <MudSpacer />
         <AuthorizeView>
             <Authorized>

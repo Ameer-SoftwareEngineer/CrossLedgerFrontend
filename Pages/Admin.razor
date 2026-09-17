@@ -1,0 +1,226 @@
+@page "/admin"
+@attribute [Authorize(Roles = "Admin")]
+@inject AdminApiClient AdminApiClient
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin console - CrossLedger</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Admin console</MudText>
+<MudText Typo="Typo.body2" Class="mb-4">
+    Every action on this page requires the Admin role server-side, not just client-side navigation - a Customer
+    or Support token gets a clean 403 from each of these endpoints (specification 9's RBAC proof).
+</MudText>
+
+<MudTabs Elevation="1" Rounded="true" PanelClass="pa-4" ApplyEffectsToContainer="true">
+    <MudTabPanel Text="Users">
+        @if (_isLoadingUsers)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_usersError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_usersError</MudAlert>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Locked out</th>
+                        @foreach (var role in AllRoles)
+                        {
+                            <th>@role</th>
+                        }
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in _users)
+                    {
+                        <tr>
+                            <td>@user.Email</td>
+                            <td>
+                                @if (user.IsLockedOut)
+                                {
+                                    <MudChip T="string" Color="Color.Warning" Size="Size.Small">Locked</MudChip>
+                                }
+                            </td>
+                            @foreach (var role in AllRoles)
+                            {
+                                <td>
+                                    <MudCheckBox T="bool" Value="@_editedRoles[user.Id].Contains(role)"
+                                                 ValueChanged="@((bool @checked) => ToggleRole(user.Id, role, @checked))" />
+                                </td>
+                            }
+                            <td>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                           OnClick="@(() => SaveRolesAsync(user.Id))" Disabled="_savingUserId == user.Id">
+                                    @(_savingUserId == user.Id ? "Saving..." : "Save")
+                                </MudButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Provider health">
+        <MudButton Variant="Variant.Outlined" OnClick="LoadProviderHealthAsync" Disabled="_isLoadingHealth" Class="mb-4">
+            @(_isLoadingHealth ? "Checking..." : "Refresh")
+        </MudButton>
+
+        @if (_healthError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_healthError</MudAlert>
+        }
+        else
+        {
+            <MudGrid>
+                @foreach (var provider in _providerHealth)
+                {
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudPaper Class="pa-4" Elevation="2">
+                            <MudText Typo="Typo.subtitle2">@provider.ProviderCode</MudText>
+                            <MudChip T="string" Color="@StatusColor(provider.Status)" Size="Size.Small" Class="mt-2">@provider.Status</MudChip>
+                            <MudText Typo="Typo.caption" Class="mt-2">Checked @provider.CheckedAt.ToLocalTime().ToString("T")</MudText>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Webhook events">
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Inbound provider notifications CrossLedger has already processed and deduplicated (specification 5.4) -
+            not an outbound delivery log, which this codebase has no subscriber concept for yet.
+        </MudText>
+        <MudTable @ref="_webhookTable" ServerData="LoadWebhookEventsAsync" Dense="true">
+            <HeaderContent>
+                <MudTh>Provider</MudTh>
+                <MudTh>Event id</MudTh>
+                <MudTh>Processed at</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Provider">@context.ProviderCode</MudTd>
+                <MudTd DataLabel="Event id">@context.EventId</MudTd>
+                <MudTd DataLabel="Processed at">@context.ProcessedAt.ToLocalTime().ToString("g")</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText>No webhook events recorded yet.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+            </PagerContent>
+        </MudTable>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private static readonly string[] AllRoles = ["Customer", "Support", "Admin"];
+
+    private List<UserSummaryResponse> _users = new();
+    private readonly Dictionary<Guid, HashSet<string>> _editedRoles = new();
+    private bool _isLoadingUsers = true;
+    private string? _usersError;
+    private Guid? _savingUserId;
+
+    private List<ProviderHealthResponse> _providerHealth = new();
+    private bool _isLoadingHealth;
+    private string? _healthError;
+
+    private MudTable<WebhookEventResponse> _webhookTable = null!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadUsersAsync();
+        await LoadProviderHealthAsync();
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        _isLoadingUsers = true;
+        _usersError = null;
+
+        var result = await AdminApiClient.ListUsersAsync();
+
+        _isLoadingUsers = false;
+
+        if (!result.IsSuccess)
+        {
+            _usersError = result.ErrorMessage;
+            return;
+        }
+
+        _users = result.Value!.OrderBy(u => u.Email).ToList();
+        _editedRoles.Clear();
+        foreach (var user in _users)
+            _editedRoles[user.Id] = new HashSet<string>(user.Roles);
+    }
+
+    private void ToggleRole(Guid userId, string role, bool isChecked)
+    {
+        if (isChecked)
+            _editedRoles[userId].Add(role);
+        else
+            _editedRoles[userId].Remove(role);
+    }
+
+    private async Task SaveRolesAsync(Guid userId)
+    {
+        _savingUserId = userId;
+
+        var result = await AdminApiClient.SetUserRolesAsync(userId, _editedRoles[userId].ToList());
+
+        _savingUserId = null;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Failed to update roles.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Roles updated.", Severity.Success);
+        await LoadUsersAsync();
+    }
+
+    private async Task LoadProviderHealthAsync()
+    {
+        _isLoadingHealth = true;
+        _healthError = null;
+
+        var result = await AdminApiClient.GetProviderHealthAsync();
+
+        _isLoadingHealth = false;
+
+        if (!result.IsSuccess)
+        {
+            _healthError = result.ErrorMessage;
+            return;
+        }
+
+        _providerHealth = result.Value!.OrderBy(p => p.ProviderCode).ToList();
+    }
+
+    private async Task<TableData<WebhookEventResponse>> LoadWebhookEventsAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await AdminApiClient.ListWebhookEventsAsync(state.Page + 1, state.PageSize);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Failed to load webhook events.", Severity.Error);
+            return new TableData<WebhookEventResponse> { Items = Array.Empty<WebhookEventResponse>(), TotalItems = 0 };
+        }
+
+        return new TableData<WebhookEventResponse> { Items = result.Value!.Entries, TotalItems = result.Value.TotalCount };
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Healthy" => Color.Success,
+        "Degraded" => Color.Warning,
+        _ => Color.Error,
+    };
+}

@@ -1,5 +1,6 @@
 using Blazored.LocalStorage;
 using CrossLedgerFrontend;
+using CrossLedgerFrontend.Admin;
 using CrossLedgerFrontend.Api;
 using CrossLedgerFrontend.Auth;
 using CrossLedgerFrontend.Fx;
@@ -47,5 +48,6 @@ builder.Services.AddScoped<TransferApiClient>();
 builder.Services.AddScoped<TwoFactorApiClient>();
 builder.Services.AddScoped<FxRatesApiClient>();
 builder.Services.AddScoped<PayoutApiClient>();
+builder.Services.AddScoped<AdminApiClient>();
 
 await builder.Build().RunAsync();
