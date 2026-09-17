@@ -1,0 +1,200 @@
+@page "/payout"
+@attribute [Authorize]
+@inject WalletApiClient WalletApiClient
+@inject PayoutApiClient PayoutApiClient
+
+<PageTitle>International payout - CrossLedger</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">International payout</MudText>
+<MudText Typo="Typo.body2" Class="mb-4">
+    Sends from one of your wallets out through an external payment provider - unlike Send Money's conversion
+    between your own wallets, this is CrossLedger's provider-routing path (specification 5). Below the result,
+    the Routing Inspector shows every provider the routing engine actually considered and why it picked the one it did.
+</MudText>
+
+@if (_isLoadingWallets)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_wallets.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">
+        You need at least one wallet before you can send a payout. Add one from the <MudLink Href="/">Wallets</MudLink> page.
+    </MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-6" Style="max-width: 480px;" Elevation="2">
+        <MudSelect T="Guid" @bind-Value="_sourceWalletId" Label="From wallet">
+            @foreach (var wallet in _wallets)
+            {
+                <MudSelectItem T="Guid" Value="@wallet.WalletId">@wallet.Currency (@SupportedCurrencies.Format(wallet.Balance, wallet.Currency) available)</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="string" @bind-Value="_targetCurrency" Label="Target currency" Class="mt-4">
+            @foreach (var currency in SupportedCurrencies.All)
+            {
+                <MudSelectItem T="string" Value="@currency">@currency</MudSelectItem>
+            }
+        </MudSelect>
+        <MudTextField @bind-Value="_destinationCountry" Label="Destination country" HelperText="ISO 3166-1 alpha-2, e.g. GB" MaxLength="2" Class="mt-4" />
+        <MudNumericField T="decimal" @bind-Value="_amount" Label="Amount" Min="0.01m" Class="mt-4" />
+        <MudSelect T="string" @bind-Value="_preference" Label="Preference" Class="mt-4">
+            <MudSelectItem T="string" Value="@("Standard")">Standard</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Priority")">Priority</MudSelectItem>
+        </MudSelect>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                   OnClick="SubmitAsync" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Sending..." : "Send payout")
+        </MudButton>
+    </MudPaper>
+
+    @if (_payout is not null)
+    {
+        <MudPaper Class="pa-6 mt-6" Style="max-width: 640px;" Elevation="2">
+            <MudText Typo="Typo.h6" GutterBottom="true">Payout result</MudText>
+            <MudText Typo="Typo.body2">Payout <code>@_payout.PayoutId</code></MudText>
+            <MudText Typo="Typo.body2">State: <strong>@_payout.State</strong></MudText>
+            @if (_payout.ProviderCode is not null)
+            {
+                <MudText Typo="Typo.body2">Provider: <strong>@_payout.ProviderCode</strong> (@_payout.ProviderReference)</MudText>
+            }
+
+            <MudText Typo="Typo.h6" Class="mt-6" GutterBottom="true">Routing Inspector</MudText>
+            @if (_isLoadingRouting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+            }
+            else if (_routingError is not null)
+            {
+                <MudAlert Severity="Severity.Error">@_routingError</MudAlert>
+            }
+            else if (_routingEntries.Count == 0)
+            {
+                <MudText Typo="Typo.body2">No routing decision was recorded for this payout.</MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Elevation="0">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Provider</th>
+                            <th style="text-align: right;">Score</th>
+                            <th style="text-align: right;">Fee</th>
+                            <th style="text-align: right;">ETA</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var entry in _routingEntries)
+                        {
+                            <tr>
+                                <td>
+                                    @if (entry.Rank == 0)
+                                    {
+                                        <MudChip T="string" Color="Color.Success" Size="Size.Small">Selected</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2">Fallback #@entry.Rank</MudText>
+                                    }
+                                </td>
+                                <td>@entry.ProviderCode</td>
+                                <td style="text-align: right;">@entry.Score.ToString("N4")</td>
+                                <td style="text-align: right;">@entry.FeeAmount.ToString("N2") @entry.FeeCurrency</td>
+                                <td style="text-align: right;">@entry.EstimatedSettlementMinutes.ToString("N0") min</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    }
+}
+
+@code {
+    private List<WalletSummaryResponse> _wallets = new();
+    private bool _isLoadingWallets = true;
+
+    private Guid _sourceWalletId;
+    private string? _targetCurrency;
+    private string _destinationCountry = "GB";
+    private decimal _amount = 10m;
+    private string _preference = "Standard";
+
+    private bool _isSubmitting;
+    private string? _error;
+
+    private PayoutResponse? _payout;
+    private bool _isLoadingRouting;
+    private string? _routingError;
+    private List<RoutingDecisionEntryResponse> _routingEntries = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await WalletApiClient.ListMineAsync();
+        _isLoadingWallets = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
+        if (_wallets.Count > 0)
+        {
+            _sourceWalletId = _wallets[0].WalletId;
+            _targetCurrency = SupportedCurrencies.All.FirstOrDefault(c => c != _wallets[0].Currency);
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_targetCurrency is null || string.IsNullOrWhiteSpace(_destinationCountry))
+            return;
+
+        _isSubmitting = true;
+        _error = null;
+        _payout = null;
+        _routingEntries = new List<RoutingDecisionEntryResponse>();
+
+        var request = new CreatePayoutRequest(_sourceWalletId, _targetCurrency, _destinationCountry.ToUpperInvariant(), _amount, _preference);
+        var result = await PayoutApiClient.CreateAsync(request, Guid.NewGuid().ToString());
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _payout = result.Value;
+        await LoadRoutingDecisionAsync(_payout!.PayoutId);
+    }
+
+    private async Task LoadRoutingDecisionAsync(Guid payoutId)
+    {
+        _isLoadingRouting = true;
+        _routingError = null;
+
+        var result = await PayoutApiClient.GetRoutingDecisionAsync(payoutId);
+
+        _isLoadingRouting = false;
+
+        if (!result.IsSuccess)
+        {
+            _routingError = result.ErrorMessage;
+            return;
+        }
+
+        _routingEntries = result.Value!.OrderBy(e => e.Rank).ToList();
+    }
+}

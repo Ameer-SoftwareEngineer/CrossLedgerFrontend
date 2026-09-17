@@ -3,6 +3,7 @@ using CrossLedgerFrontend;
 using CrossLedgerFrontend.Api;
 using CrossLedgerFrontend.Auth;
 using CrossLedgerFrontend.Fx;
+using CrossLedgerFrontend.Payments;
 using CrossLedgerFrontend.Security;
 using CrossLedgerFrontend.Transfers;
 using CrossLedgerFrontend.Wallets;
@@ -45,5 +46,6 @@ builder.Services.AddScoped<QuoteApiClient>();
 builder.Services.AddScoped<TransferApiClient>();
 builder.Services.AddScoped<TwoFactorApiClient>();
 builder.Services.AddScoped<FxRatesApiClient>();
+builder.Services.AddScoped<PayoutApiClient>();
 
 await builder.Build().RunAsync();
