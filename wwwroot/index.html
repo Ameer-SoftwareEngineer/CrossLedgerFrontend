@@ -19,10 +19,8 @@
             inset: 0;
             z-index: 9999;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 18px;
             background-color: #0A0E17;
             background-image:
                 linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
@@ -33,6 +31,9 @@
             transition: opacity 400ms ease;
         }
 
+        /* Outer element: only ever handles position/size (the shrink-to-corner move) -
+           kept deliberately separate from the spinning inner element below so the two
+           transforms never fight over the same `transform` property. */
         #cl-splash-mark {
             width: 96px;
             height: 96px;
@@ -42,8 +43,18 @@
             background: linear-gradient(135deg, #34D399 0%, #10B981 55%, #22D3EE 100%);
             box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.4), 0 20px 50px -12px rgba(16, 185, 129, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.4);
             transform-origin: center;
-            animation: cl-splash-pulse 1.8s ease-in-out infinite;
             transition: transform 550ms cubic-bezier(.4, 0, .2, 1), border-radius 550ms ease;
+        }
+
+        /* Inner element: only ever handles the continuous spin, the loading indicator. */
+        #cl-splash-mark-spin {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: cl-splash-spin 1.4s linear infinite;
+            transition: transform 250ms ease;
         }
 
         #cl-splash-mark svg {
@@ -52,18 +63,9 @@
             display: block;
         }
 
-        #cl-splash-text {
-            font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            font-weight: 800;
-            font-size: 1.3rem;
-            letter-spacing: -0.02em;
-            color: #F1F5F9;
-            transition: opacity 250ms ease;
-        }
-
-        @keyframes cl-splash-pulse {
-            0%, 100% { box-shadow: 0 0 0 1px rgba(16, 185, 129, .4), 0 20px 50px -12px rgba(16, 185, 129, .65), inset 0 1px 0 rgba(255, 255, 255, .4); }
-            50% { box-shadow: 0 0 0 1px rgba(16, 185, 129, .6), 0 26px 60px -10px rgba(16, 185, 129, .85), inset 0 1px 0 rgba(255, 255, 255, .5); }
+        @keyframes cl-splash-spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
 
         /* The app's real header logo sits ~24px from the left, vertically centered in
@@ -72,11 +74,13 @@
         #cl-splash.cl-splash-ready #cl-splash-mark {
             transform: translate(calc(-50vw + 43px), calc(-50vh + 32px)) scale(0.4);
             border-radius: 11px;
-            animation: none;
         }
 
-        #cl-splash.cl-splash-ready #cl-splash-text {
-            opacity: 0;
+        /* Stops the spin and snaps the icon back upright - it should sit still and
+           the right way up once it's parked in the corner, not stay mid-spin. */
+        #cl-splash.cl-splash-ready #cl-splash-mark-spin {
+            animation: none;
+            transform: rotate(0deg);
         }
 
         #cl-splash.cl-splash-hidden {
@@ -89,14 +93,15 @@
 <body>
     <div id="cl-splash">
         <div id="cl-splash-mark">
-            <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
-                <rect x="6" y="8.3" width="16" height="3.4" rx="1.7" fill="#06110C" fill-opacity="0.75" />
-                <rect x="6" y="16.3" width="24" height="3.4" rx="1.7" fill="#06110C" />
-                <rect x="6" y="24.3" width="12" height="3.4" rx="1.7" fill="#06110C" fill-opacity="0.75" />
-                <line x1="27.5" y1="4.5" x2="8.5" y2="31.5" stroke="#06110C" stroke-width="3.4" stroke-linecap="round" />
-            </svg>
+            <div id="cl-splash-mark-spin">
+                <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="8.3" width="16" height="3.4" rx="1.7" fill="#06110C" fill-opacity="0.75" />
+                    <rect x="6" y="16.3" width="24" height="3.4" rx="1.7" fill="#06110C" />
+                    <rect x="6" y="24.3" width="12" height="3.4" rx="1.7" fill="#06110C" fill-opacity="0.75" />
+                    <line x1="27.5" y1="4.5" x2="8.5" y2="31.5" stroke="#06110C" stroke-width="3.4" stroke-linecap="round" />
+                </svg>
+            </div>
         </div>
-        <div id="cl-splash-text">CrossLedger</div>
     </div>
 
     <div id="app">
