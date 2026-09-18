@@ -2,14 +2,16 @@ html, body {
     font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
-/* ---- Dark canvas: base colour + faint grid + two glowing colour blobs ---- */
+/* ---- Light canvas: soft off-white (not stark white) + faint grid + two soft
+   colour blobs - keeps the same brand "grid + glow" identity as the dark theme,
+   just re-tuned for a light background instead of dropping it for plain white. ---- */
 body {
-    background-color: #0A0E17;
+    background-color: #F4F7F6;
     background-image:
-        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-        radial-gradient(circle at 12% 8%, rgba(16, 185, 129, 0.20) 0%, transparent 40%),
-        radial-gradient(circle at 88% 82%, rgba(34, 211, 238, 0.16) 0%, transparent 42%);
+        linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+        radial-gradient(circle at 12% 8%, rgba(16, 185, 129, 0.10) 0%, transparent 40%),
+        radial-gradient(circle at 88% 82%, rgba(34, 211, 238, 0.10) 0%, transparent 42%);
     background-size: 42px 42px, 42px 42px, 100% 100%, 100% 100%;
     background-attachment: fixed;
 }
@@ -49,8 +51,8 @@ body {
 }
 
 .cl-auth-card {
-    border: 1px solid rgba(16, 185, 129, 0.15);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 24px 48px -20px rgba(0, 0, 0, 0.6) !important;
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.02), 0 24px 48px -20px rgba(16, 185, 129, 0.18) !important;
 }
 
 /* ---- Login 2FA method choice cards ---- */
@@ -58,14 +60,14 @@ body {
     display: flex;
     align-items: center;
     cursor: pointer;
-    border: 1px solid rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(15, 23, 42, 0.08);
     transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
 }
 
 .cl-method-choice:hover {
     transform: translateY(-2px);
-    border-color: rgba(16, 185, 129, 0.55);
-    box-shadow: 0 0 24px -6px rgba(16, 185, 129, 0.5) !important;
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 8px 24px -8px rgba(16, 185, 129, 0.35) !important;
 }
 
 .cl-method-choice .mud-icon-root {
@@ -94,13 +96,13 @@ body {
     image-rendering: pixelated;
 }
 
-/* ---- App bar: dark glass with a glowing bottom edge ---- */
+/* ---- App bar: bright glass with a soft brand-coloured bottom edge ---- */
 .cl-appbar.mud-appbar {
-    background-color: rgba(13, 18, 32, 0.85) !important;
+    background-color: rgba(255, 255, 255, 0.85) !important;
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid rgba(16, 185, 129, 0.18);
-    box-shadow: 0 1px 0 rgba(16, 185, 129, 0.08), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+    border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+    box-shadow: 0 1px 0 rgba(16, 185, 129, 0.08), 0 8px 24px -16px rgba(15, 23, 42, 0.15);
 }
 
 .cl-user-chip {
@@ -108,18 +110,18 @@ body {
     padding-left: 4px;
     background-color: rgba(16, 185, 129, 0.08) !important;
     border: 1px solid rgba(16, 185, 129, 0.18);
-    color: #F1F5F9 !important;
+    color: #0F172A !important;
 }
 
 .cl-nav-section {
-    color: #5B6478;
+    color: #94A3B8;
     letter-spacing: .1em;
 }
 
 /* ---- Sidebar ---- */
 .cl-drawer.mud-drawer {
-    border-right: 1px solid rgba(16, 185, 129, 0.12);
-    background-color: rgba(13, 18, 32, 0.9);
+    border-right: 1px solid rgba(15, 23, 42, 0.06);
+    background-color: #FFFFFF;
 }
 
 .cl-drawer .mud-nav-link {
@@ -146,8 +148,8 @@ body {
 }
 
 .cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover {
-    background-color: rgba(16, 185, 129, 0.10);
-    color: #F1F5F9 !important;
+    background-color: rgba(16, 185, 129, 0.08);
+    color: #0F172A !important;
     transform: translateX(8px);
 }
 
@@ -171,13 +173,13 @@ body {
     color: #06110C !important;
 }
 
-/* ---- Cards: a hairline glow border instead of a Material drop shadow, which
-   doesn't read against an already-dark backdrop ---- */
+/* ---- Cards: a soft shadow with a whisper of brand colour instead of a flat
+   grey Material drop shadow ---- */
 .mud-paper.mud-elevation-1,
 .mud-paper.mud-elevation-2,
 .mud-paper.mud-elevation-3 {
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.045), 0 16px 32px -18px rgba(0, 0, 0, 0.65) !important;
-    border: 1px solid rgba(16, 185, 129, 0.10);
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04), 0 16px 32px -20px rgba(16, 185, 129, 0.25) !important;
+    border: 1px solid rgba(15, 23, 42, 0.05);
 }
 
 /* ---- Gradient primary buttons with a real glow, brighter on hover ---- */
@@ -185,13 +187,13 @@ body {
     background: linear-gradient(135deg, #10B981 0%, #22D3EE 100%) !important;
     color: #06110C !important;
     font-weight: 700 !important;
-    box-shadow: 0 0 22px -4px rgba(16, 185, 129, 0.7) !important;
+    box-shadow: 0 8px 22px -6px rgba(16, 185, 129, 0.55) !important;
     transition: transform 150ms ease, box-shadow 150ms ease;
 }
 
 .mud-button-filled-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 0 28px -2px rgba(16, 185, 129, 0.85) !important;
+    box-shadow: 0 10px 26px -4px rgba(16, 185, 129, 0.65) !important;
 }
 
 .cl-main-content {
@@ -205,16 +207,16 @@ body {
 }
 
 .cl-dash-subtitle {
-    color: #7C8397;
+    color: #64748B;
 }
 
 .cl-hero-card {
     height: 100%;
     color: #fff;
-    background: linear-gradient(135deg, #065F46 0%, #0E7490 100%);
+    background: linear-gradient(135deg, #10B981 0%, #0E7490 100%);
     background-size: 200% 200%;
     animation: cl-hero-shimmer 8s ease infinite;
-    box-shadow: 0 0 40px -8px rgba(16, 185, 129, 0.55) !important;
+    box-shadow: 0 16px 40px -12px rgba(16, 185, 129, 0.45) !important;
     position: relative;
     overflow: hidden;
     border: 1px solid rgba(52, 211, 153, 0.4);
@@ -270,7 +272,7 @@ body {
     align-items: center;
     gap: 12px;
     padding: 10px 4px;
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid rgba(15, 23, 42, 0.06);
 }
 
 .cl-activity-row:first-of-type {
@@ -316,7 +318,7 @@ body {
 }
 
 .cl-activity-amount-out {
-    color: #F1F5F9;
+    color: #0F172A;
 }
 
 .cl-wallet-card {
@@ -351,7 +353,7 @@ body {
 }
 
 .cl-wallet-currency {
-    color: #8B92A8;
+    color: #64748B;
     font-weight: 600;
     letter-spacing: .04em;
 }
@@ -382,8 +384,8 @@ body {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    border: 1.5px dashed rgba(16, 185, 129, 0.35);
-    color: #7C8397;
+    border: 1.5px dashed rgba(16, 185, 129, 0.4);
+    color: #64748B;
     transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
 }
 
