@@ -74,11 +74,16 @@
     {
         <MudText Typo="Typo.h5" GutterBottom="true">Set up your authenticator</MudText>
         <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
-            Add this key to Google Authenticator, Authy, or a similar app, then enter the 6-digit code it shows.
+            Scan the QR code with Google Authenticator, Authy, or a similar app - or enter the key by hand if you can't scan -
+            then enter the 6-digit code it shows.
         </MudText>
 
-        <MudPaper Class="pa-4" Elevation="0" Style="background: rgba(255,255,255,0.03);">
-            <MudText Typo="Typo.caption" Class="cl-dash-subtitle">Secret key</MudText>
+        <div class="cl-totp-qr-wrap">
+            <img src="@_totpQrDataUri" alt="Authenticator QR code" class="cl-totp-qr" />
+        </div>
+
+        <MudPaper Class="pa-4 mt-3" Elevation="0" Style="background: rgba(255,255,255,0.03);">
+            <MudText Typo="Typo.caption" Class="cl-dash-subtitle">Can't scan? Enter this key manually</MudText>
             <MudText Typo="Typo.body1" Style="font-family: monospace; word-break: break-all;">@_totpSecret</MudText>
         </MudPaper>
 
@@ -176,6 +181,7 @@
 
     private string _code = string.Empty;
     private string? _totpSecret;
+    private string? _totpQrDataUri;
     private IReadOnlyList<string> _recoveryCodes = [];
 
     private string? _error;
@@ -258,6 +264,7 @@
             }
 
             _totpSecret = result.Value!.Secret;
+            _totpQrDataUri = TotpQrCodeGenerator.GenerateDataUri(result.Value!.QrCodeUri);
             _step = LoginStep.TotpSetup;
         }
         else

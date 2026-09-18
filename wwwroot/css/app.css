@@ -78,6 +78,22 @@ body {
     background: transparent;
 }
 
+/* ---- Authenticator setup QR code: white card so the PNG's own
+   black-on-white contrast stays scannable against the dark theme ---- */
+.cl-totp-qr-wrap {
+    display: flex;
+    justify-content: center;
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.cl-totp-qr {
+    width: 200px;
+    height: 200px;
+    image-rendering: pixelated;
+}
+
 /* ---- App bar: dark glass with a glowing bottom edge ---- */
 .cl-appbar.mud-appbar {
     background-color: rgba(13, 18, 32, 0.85) !important;

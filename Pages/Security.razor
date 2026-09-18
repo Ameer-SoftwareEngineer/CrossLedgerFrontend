@@ -41,10 +41,14 @@
     else
     {
         <MudText Typo="Typo.body2" Class="mb-2">
-            Add this key to your authenticator app (as a "manual entry" / "setup key"), then enter the 6-digit code it shows.
+            Scan this QR code with your authenticator app - or add the key manually if you can't scan - then enter the
+            6-digit code it shows.
         </MudText>
-        <MudPaper Class="pa-4" Elevation="0" Outlined="true">
-            <MudText Typo="Typo.body2">Account: your CrossLedger login email</MudText>
+        <div class="cl-totp-qr-wrap">
+            <img src="@_totpQrDataUri" alt="Authenticator QR code" class="cl-totp-qr" />
+        </div>
+        <MudPaper Class="pa-4 mt-3" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.body2">Can't scan? Account: your CrossLedger login email</MudText>
             <MudText Typo="Typo.body1" Style="font-family: monospace; word-break: break-all;">@_enrollment.Secret</MudText>
         </MudPaper>
         <MudTextField @bind-Value="_confirmCode" Label="6-digit code" MaxLength="6" Class="mt-4" Immediate="true" />
@@ -62,6 +66,7 @@
 
 @code {
     private BeginTotpEnrollmentResponse? _enrollment;
+    private string? _totpQrDataUri;
     private IReadOnlyList<string>? _recoveryCodes;
     private string _confirmCode = string.Empty;
     private bool _isBeginning;
@@ -85,6 +90,7 @@
         }
 
         _enrollment = result.Value;
+        _totpQrDataUri = TotpQrCodeGenerator.GenerateDataUri(result.Value!.QrCodeUri);
     }
 
     private async Task ConfirmEnrollmentAsync()
