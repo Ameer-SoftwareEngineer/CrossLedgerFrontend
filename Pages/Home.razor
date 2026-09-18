@@ -34,32 +34,46 @@ else
             </MudPaper>
         </MudItem>
         <MudItem xs="12" md="8">
-            <MudGrid>
-                <MudItem xs="6" sm="3">
-                    <MudPaper Class="pa-4 cl-quick-action" Elevation="0" @onclick="@(() => Navigation.NavigateTo("/send"))">
-                        <div class="cl-quick-icon"><MudIcon Icon="@Icons.Material.Filled.SwapHorizontalCircle" /></div>
-                        <MudText Typo="Typo.body2" Class="mt-2">Send money</MudText>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="6" sm="3">
-                    <MudPaper Class="pa-4 cl-quick-action" Elevation="0" @onclick="@(() => Navigation.NavigateTo("/payout"))">
-                        <div class="cl-quick-icon"><MudIcon Icon="@Icons.Material.Filled.Public" /></div>
-                        <MudText Typo="Typo.body2" Class="mt-2">Send abroad</MudText>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="6" sm="3">
-                    <MudPaper Class="pa-4 cl-quick-action" Elevation="0" @onclick="@(() => Navigation.NavigateTo("/transactions"))">
-                        <div class="cl-quick-icon"><MudIcon Icon="@Icons.Material.Filled.ReceiptLong" /></div>
-                        <MudText Typo="Typo.body2" Class="mt-2">Transactions</MudText>
-                    </MudPaper>
-                </MudItem>
-                <MudItem xs="6" sm="3">
-                    <MudPaper Class="pa-4 cl-quick-action" Elevation="0" @onclick="@(() => Navigation.NavigateTo("/fx-rates"))">
-                        <div class="cl-quick-icon"><MudIcon Icon="@Icons.Material.Filled.TrendingUp" /></div>
-                        <MudText Typo="Typo.body2" Class="mt-2">FX rates</MudText>
-                    </MudPaper>
-                </MudItem>
-            </MudGrid>
+            <MudPaper Class="pa-5 cl-activity-card" Elevation="0">
+                <div class="d-flex align-center justify-space-between mb-2">
+                    <MudText Typo="Typo.subtitle1" Class="cl-activity-title">Recent transactions</MudText>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" Href="/transactions">View all</MudButton>
+                </div>
+
+                @if (_isActivityLoading)
+                {
+                    <div class="cl-activity-empty">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                    </div>
+                }
+                else if (_recentActivity.Count == 0)
+                {
+                    <div class="cl-activity-empty">
+                        <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Large" Class="mb-2 cl-dash-subtitle" />
+                        <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No transactions yet.</MudText>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/send" Class="mt-1">Send your first transfer</MudButton>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var entry in _recentActivity)
+                    {
+                        var isCredit = entry.Direction == "Credit";
+                        <div class="cl-activity-row">
+                            <div class="cl-activity-icon @(isCredit ? "cl-activity-icon-in" : "cl-activity-icon-out")">
+                                <MudIcon Icon="@(isCredit ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)" Size="Size.Small" />
+                            </div>
+                            <div class="cl-activity-info">
+                                <MudText Typo="Typo.body2" Class="cl-activity-label">@(isCredit ? "Received" : "Sent") · @entry.Currency</MudText>
+                                <MudText Typo="Typo.caption" Class="cl-dash-subtitle">@entry.PostedAt.ToLocalTime().ToString("dd MMM, HH:mm")</MudText>
+                            </div>
+                            <MudText Typo="Typo.body1" Class="@("cl-activity-amount " + (isCredit ? "cl-activity-amount-in" : "cl-activity-amount-out"))">
+                                @(isCredit ? "+" : "-")@SupportedCurrencies.Format(entry.Amount, entry.Currency)
+                            </MudText>
+                        </div>
+                    }
+                }
+            </MudPaper>
         </MudItem>
     </MudGrid>
 
@@ -115,7 +129,9 @@ else
 
 @code {
     private List<WalletSummaryResponse> _wallets = new();
+    private List<TransactionHistoryEntryResponse> _recentActivity = new();
     private bool _isLoading = true;
+    private bool _isActivityLoading = true;
     private bool _isCreating;
     private bool _showAddForm;
     private string? _newCurrency;
@@ -156,11 +172,34 @@ else
         if (!result.IsSuccess)
         {
             _error = result.ErrorMessage;
+            _isActivityLoading = false;
             return;
         }
 
         _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
         _newCurrency = AvailableCurrencies.FirstOrDefault();
+
+        await LoadRecentActivityAsync();
+    }
+
+    /// <summary>The API only exposes transaction history per wallet, so recent activity
+    /// across all of the user's wallets is assembled client-side: a small page from each
+    /// wallet, merged and re-sorted by date.</summary>
+    private async Task LoadRecentActivityAsync()
+    {
+        _isActivityLoading = true;
+
+        var pages = await Task.WhenAll(_wallets.Select(w =>
+            WalletApiClient.GetTransactionsAsync(w.WalletId, pageNumber: 1, pageSize: 5, fromDate: null, toDate: null)));
+
+        _recentActivity = pages
+            .Where(p => p.IsSuccess)
+            .SelectMany(p => p.Value!.Entries)
+            .OrderByDescending(e => e.PostedAt)
+            .Take(5)
+            .ToList();
+
+        _isActivityLoading = false;
     }
 
     private async Task CreateWalletAsync()

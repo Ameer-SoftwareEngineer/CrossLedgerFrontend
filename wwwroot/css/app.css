@@ -82,9 +82,40 @@ body {
 }
 
 .cl-drawer .mud-nav-link {
+    position: relative;
     border-radius: 10px;
     margin: 2px 6px;
-    transition: background-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+    overflow: hidden;
+    transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 220ms cubic-bezier(.22, .9, .32, 1);
+}
+
+/* ---- Hover: the link itself glides toward the pointer and gains a left accent
+   bar, instead of a flat colour swap - the sidebar should feel alive under the mouse ---- */
+.cl-drawer .mud-nav-link::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 3px;
+    height: 0%;
+    transform: translateY(-50%);
+    background: linear-gradient(180deg, #10B981, #22D3EE);
+    border-radius: 0 6px 6px 0;
+    transition: height 220ms ease;
+}
+
+.cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover {
+    background-color: rgba(16, 185, 129, 0.10);
+    color: #F1F5F9 !important;
+    transform: translateX(8px);
+}
+
+.cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover .mud-icon-root {
+    color: #34D399;
+}
+
+.cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover::before {
+    height: 60%;
 }
 
 .cl-drawer .mud-nav-link.active:not(.mud-nav-link-disabled) {
@@ -175,33 +206,76 @@ body {
     color: rgba(255, 255, 255, 0.8);
 }
 
-.cl-quick-action {
+/* ---- Recent transactions panel (replaces the old quick-action tiles) ---- */
+.cl-activity-card {
     height: 100%;
+}
+
+.cl-activity-title {
+    font-weight: 700;
+}
+
+.cl-activity-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    cursor: pointer;
-    transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
-    border: 1px solid rgba(16, 185, 129, 0.12);
+    padding: 2.5rem 1rem;
 }
 
-.cl-quick-action:hover {
-    transform: translateY(-2px);
-    border-color: rgba(16, 185, 129, 0.55);
-    box-shadow: 0 0 24px -6px rgba(16, 185, 129, 0.5) !important;
+.cl-activity-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.cl-quick-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
+.cl-activity-row:first-of-type {
+    border-top: none;
+}
+
+.cl-activity-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+}
+
+.cl-activity-icon-in {
     color: #34D399;
-    background: rgba(16, 185, 129, 0.12);
+    background: rgba(16, 185, 129, 0.14);
+}
+
+.cl-activity-icon-out {
+    color: #FBBF24;
+    background: rgba(251, 191, 36, 0.12);
+}
+
+.cl-activity-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.cl-activity-label {
+    font-weight: 600;
+}
+
+.cl-activity-amount {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cl-activity-amount-in {
+    color: #34D399;
+}
+
+.cl-activity-amount-out {
+    color: #F1F5F9;
 }
 
 .cl-wallet-card {
