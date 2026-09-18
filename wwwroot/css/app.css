@@ -29,6 +29,26 @@ body {
     color: #fff;
     background: linear-gradient(135deg, #6366F1 0%, #7C3AED 55%, #06B6D4 100%);
     box-shadow: 0 6px 14px -4px rgba(79, 70, 229, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    flex-shrink: 0;
+}
+
+.cl-logo-badge-lg {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+}
+
+.cl-auth-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 3rem;
+}
+
+.cl-auth-card {
+    border: 1px solid rgba(79, 70, 229, 0.08);
+    box-shadow: 0 1px 2px rgba(30, 27, 58, 0.04), 0 20px 40px -16px rgba(30, 27, 58, 0.18) !important;
 }
 
 /* ---- Glass app bar ---- */
@@ -97,6 +117,149 @@ body {
 
 .cl-main-content {
     min-height: 100vh;
+}
+
+/* ---- Dashboard ---- */
+.cl-dash-title {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.cl-dash-subtitle {
+    color: #6B6890;
+}
+
+.cl-hero-card {
+    height: 100%;
+    color: #fff;
+    background: linear-gradient(135deg, #4338CA 0%, #6D28D9 55%, #0891B2 100%);
+    box-shadow: 0 12px 28px -10px rgba(67, 56, 202, 0.55) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.cl-hero-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.18) 0%, transparent 55%);
+    pointer-events: none;
+}
+
+.cl-hero-label {
+    color: rgba(255, 255, 255, 0.75);
+    letter-spacing: .08em;
+}
+
+.cl-hero-value {
+    font-weight: 700;
+}
+
+.cl-hero-caption {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.cl-quick-action {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+    border: 1px solid rgba(79, 70, 229, 0.08);
+}
+
+.cl-quick-action:hover {
+    transform: translateY(-2px);
+    border-color: rgba(79, 70, 229, 0.35);
+    box-shadow: 0 10px 22px -10px rgba(79, 70, 229, 0.35) !important;
+}
+
+.cl-quick-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4F46E5;
+    background: rgba(79, 70, 229, 0.10);
+}
+
+.cl-wallet-card {
+    position: relative;
+    overflow: hidden;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.cl-wallet-card:hover {
+    transform: translateY(-2px);
+}
+
+.cl-wallet-card-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.cl-wallet-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    flex-shrink: 0;
+}
+
+.cl-wallet-currency {
+    color: #6B6890;
+    font-weight: 600;
+    letter-spacing: .04em;
+}
+
+.cl-wallet-balance {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+.cl-wallet-accent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.cl-accent-0 { background: linear-gradient(90deg, #4F46E5, #7C3AED); }
+.cl-accent-1 { background: linear-gradient(90deg, #0891B2, #06B6D4); }
+.cl-accent-2 { background: linear-gradient(90deg, #7C3AED, #DB2777); }
+.cl-accent-3 { background: linear-gradient(90deg, #059669, #06B6D4); }
+
+.cl-add-wallet-card {
+    height: 100%;
+    min-height: 128px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1.5px dashed rgba(79, 70, 229, 0.3);
+    color: #6B6890;
+    transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
+}
+
+.cl-add-wallet-card:hover {
+    border-color: #4F46E5;
+    color: #4F46E5;
+    background-color: rgba(79, 70, 229, 0.04);
 }
 
 h1:focus {

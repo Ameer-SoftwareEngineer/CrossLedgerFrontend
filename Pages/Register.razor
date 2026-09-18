@@ -4,7 +4,14 @@
 
 <PageTitle>Register - CrossLedger</PageTitle>
 
-<MudPaper Class="pa-8 mx-auto mt-8" Style="max-width: 420px;" Elevation="2">
+<div class="cl-auth-logo">
+    <div class="cl-logo-badge cl-logo-badge-lg">
+        <CrossLedgerMark Size="30" />
+    </div>
+    <MudText Typo="Typo.h5" Class="cl-brand">CrossLedger</MudText>
+</div>
+
+<MudPaper Class="pa-8 mx-auto mt-4 cl-auth-card" Style="max-width: 420px;" Elevation="0">
     <MudText Typo="Typo.h5" GutterBottom="true">Create an account</MudText>
 
     <MudForm @ref="_form" Model="_model">
