@@ -96,6 +96,39 @@ body {
     image-rendering: pixelated;
 }
 
+/* ---- Password strength meter ---- */
+.cl-strength-bars {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.cl-strength-bar {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(15, 23, 42, 0.08);
+}
+
+/* ---- Register wizard step indicator ---- */
+.cl-step-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.cl-step-indicator .cl-step-bar {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(15, 23, 42, 0.08);
+}
+
+.cl-step-indicator .cl-step-bar-active {
+    background: linear-gradient(90deg, #10B981, #22D3EE);
+}
+
 /* ---- App bar: bright glass with a soft brand-coloured bottom edge ---- */
 .cl-appbar.mud-appbar {
     background-color: rgba(255, 255, 255, 0.85) !important;

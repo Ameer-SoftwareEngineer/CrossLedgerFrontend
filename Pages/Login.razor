@@ -20,6 +20,11 @@
             <MudTextField @bind-Value="_credentialsModel.Email" Label="Email" InputType="InputType.Email" Required="true" />
             <MudTextField @bind-Value="_credentialsModel.Password" Label="Password" InputType="InputType.Password" Required="true" Class="mt-4" />
 
+            <div class="d-flex align-center justify-space-between mt-3">
+                <MudCheckBox T="bool" @bind-Value="_rememberMe" Label="Remember me" Dense="true" />
+                <MudLink Href="/forgot-password" Typo="Typo.body2">Forgot password?</MudLink>
+            </div>
+
             @if (_error is not null)
             {
                 <MudAlert Severity="@(_isInfoMessage ? Severity.Info : Severity.Error)" Class="mt-4">@_error</MudAlert>
@@ -173,6 +178,7 @@
 
     private MudForm _credentialsForm = null!;
     private readonly CredentialsModel _credentialsModel = new();
+    private bool _rememberMe;
 
     private string? _challengeToken;
     private bool _requiresSetup;
@@ -291,7 +297,7 @@
         _isSubmitting = true;
         _error = null;
 
-        var result = await AuthApiClient.VerifyTwoFactorAsync(_challengeToken!, method, _code);
+        var result = await AuthApiClient.VerifyTwoFactorAsync(_challengeToken!, method, _code, _rememberMe);
 
         _isSubmitting = false;
 
@@ -309,7 +315,7 @@
         _isSubmitting = true;
         _error = null;
 
-        var result = await AuthApiClient.ConfirmTwoFactorTotpSetupAsync(_challengeToken!, _totpSecret!, _code);
+        var result = await AuthApiClient.ConfirmTwoFactorTotpSetupAsync(_challengeToken!, _totpSecret!, _code, _rememberMe);
 
         _isSubmitting = false;
 

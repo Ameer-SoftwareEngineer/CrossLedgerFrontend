@@ -1,10 +1,12 @@
 using Blazored.LocalStorage;
+using Blazored.SessionStorage;
 using CrossLedgerFrontend;
 using CrossLedgerFrontend.Admin;
 using CrossLedgerFrontend.Api;
 using CrossLedgerFrontend.Auth;
 using CrossLedgerFrontend.Fx;
 using CrossLedgerFrontend.Payments;
+using CrossLedgerFrontend.Profile;
 using CrossLedgerFrontend.Security;
 using CrossLedgerFrontend.Transfers;
 using CrossLedgerFrontend.Wallets;
@@ -21,6 +23,7 @@ const string ApiBaseAddress = ApiConfig.BaseAddress;
 
 builder.Services.AddMudServices();
 builder.Services.AddBlazoredLocalStorage();
+builder.Services.AddBlazoredSessionStorage();
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<CrossLedgerAuthenticationStateProvider>();
@@ -49,5 +52,6 @@ builder.Services.AddScoped<TwoFactorApiClient>();
 builder.Services.AddScoped<FxRatesApiClient>();
 builder.Services.AddScoped<PayoutApiClient>();
 builder.Services.AddScoped<AdminApiClient>();
+builder.Services.AddScoped<ProfileApiClient>();
 
 await builder.Build().RunAsync();

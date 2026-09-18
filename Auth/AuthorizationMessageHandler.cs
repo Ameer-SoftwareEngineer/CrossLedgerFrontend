@@ -80,7 +80,10 @@ public sealed class AuthorizationMessageHandler : DelegatingHandler
             if (tokens is null)
                 return null;
 
-            await _tokenStore.SaveAsync(tokens.AccessToken, tokens.RefreshToken);
+            // Keeps writing the refreshed pair to whichever store the user originally
+            // chose ("Remember me" or not) rather than silently changing it.
+            var remember = await _tokenStore.IsRememberedAsync();
+            await _tokenStore.SaveAsync(tokens.AccessToken, tokens.RefreshToken, remember);
             _authStateProvider.NotifyUserChanged();
             return tokens.AccessToken;
         }

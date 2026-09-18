@@ -13,7 +13,9 @@ public sealed record WebhookEventPageResponse(IReadOnlyList<WebhookEventResponse
 public sealed record PendingRegistrationResponse(
     Guid Id,
     string Email,
-    string FullName,
+    string FirstName,
+    string? MiddleName,
+    string LastName,
     string PhoneNumber,
     DateOnly DateOfBirth,
     string Address,
@@ -23,4 +25,7 @@ public sealed record PendingRegistrationResponse(
     string Country,
     string ProofOfAddressDocumentType,
     string ProofOfAddressFileName,
-    DateTimeOffset SubmittedAt);
+    DateTimeOffset SubmittedAt)
+{
+    public string FullName => string.IsNullOrWhiteSpace(MiddleName) ? $"{FirstName} {LastName}" : $"{FirstName} {MiddleName} {LastName}";
+}

@@ -12,113 +12,175 @@
 </div>
 
 <MudPaper Class="pa-8 mx-auto mt-4 cl-auth-card" Style="max-width: 640px;" Elevation="0">
-    <MudText Typo="Typo.h5" GutterBottom="true">Create an account</MudText>
-    <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
-        A few details for identity verification - a new account can't sign in until an admin reviews and approves it.
-    </MudText>
+    <MudText Typo="Typo.h5" GutterBottom="true">@(_step == RegisterStep.Account ? "Sign up" : "Verify your address")</MudText>
 
-    <MudForm @ref="_form" Model="_model">
-        <MudText Typo="Typo.subtitle2" Class="mt-2 mb-2">Account</MudText>
-        <MudTextField @bind-Value="_model.Email" Label="Email" InputType="InputType.Email" Required="true" />
-        <MudTextField @bind-Value="_model.Password" Label="Password" InputType="InputType.Password" Required="true" Class="mt-4"
-                      HelperText="At least 8 characters, with an uppercase letter, a lowercase letter, a digit and a symbol." />
+    <div class="cl-step-indicator">
+        <div class="cl-step-bar cl-step-bar-active"></div>
+        <div class="cl-step-bar @(_step == RegisterStep.Address ? "cl-step-bar-active" : "")"></div>
+    </div>
 
-        <MudText Typo="Typo.subtitle2" Class="mt-6 mb-2">Personal details</MudText>
-        <MudGrid>
-            <MudItem xs="12" sm="6">
-                <MudTextField @bind-Value="_model.FullName" Label="Full name" Required="true" />
-            </MudItem>
-            <MudItem xs="12" sm="6">
-                <MudTextField @bind-Value="_model.PhoneNumber" Label="Phone number" Required="true" Placeholder="+1 555 123 4567" />
-            </MudItem>
-            <MudItem xs="12" sm="6">
-                <MudDatePicker @bind-Date="_model.DateOfBirth" Label="Date of birth" Required="true" Editable="true" MaxDate="_eighteenYearsAgo" />
-            </MudItem>
-        </MudGrid>
+    @if (_step == RegisterStep.Account)
+    {
+        <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">Open your account today. Tell us who's managing it.</MudText>
 
-        <MudText Typo="Typo.subtitle2" Class="mt-6 mb-2">Current address</MudText>
-        <MudGrid>
-            <MudItem xs="12">
-                <MudTextField @bind-Value="_model.Address" Label="Street address" Required="true" />
-            </MudItem>
-            <MudItem xs="12" sm="4">
-                <MudTextField @bind-Value="_model.City" Label="City" Required="true" />
-            </MudItem>
-            <MudItem xs="12" sm="4">
-                <MudTextField @bind-Value="_model.StateProvince" Label="State / Province" Required="true" />
-            </MudItem>
-            <MudItem xs="12" sm="4">
-                <MudSelect T="string" @bind-Value="_model.Country" Label="Country" Required="true">
-                    @foreach (var country in Countries.All)
-                    {
-                        <MudSelectItem T="string" Value="@country">@country</MudSelectItem>
-                    }
-                </MudSelect>
-            </MudItem>
-        </MudGrid>
+        <MudForm @ref="_accountForm" Model="_model">
+            <MudGrid>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_model.FirstName" Label="First name" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_model.MiddleName" Label="Middle name" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_model.LastName" Label="Last name" Required="true" />
+                </MudItem>
+            </MudGrid>
 
-        <MudCheckBox T="bool" Value="_permanentSameAsCurrent" ValueChanged="OnPermanentSameAsCurrentChanged"
-                     Label="Permanent address is the same as above" Class="mt-4" />
+            <MudTextField @bind-Value="_model.Email" Label="Email address" InputType="InputType.Email" Required="true" Class="mt-4" />
 
-        @if (!_permanentSameAsCurrent)
-        {
-            <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Permanent address</MudText>
-            <MudTextField @bind-Value="_model.PermanentAddress" Label="Permanent street address" Required="true" />
-        }
+            <MudGrid Class="mt-0">
+                <MudItem xs="4" sm="3">
+                    <MudSelect T="string" @bind-Value="_model.PhoneCountryCode" Label="Code">
+                        @foreach (var entry in PhoneCountryCodes.All)
+                        {
+                            <MudSelectItem T="string" Value="@entry.Code">@entry.Label</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="8" sm="9">
+                    <MudTextField @bind-Value="_model.PhoneNumber" Label="Phone number" Required="true" />
+                </MudItem>
+            </MudGrid>
 
-        <MudText Typo="Typo.subtitle2" Class="mt-6 mb-2">Proof of address</MudText>
-        <MudText Typo="Typo.caption" Class="cl-dash-subtitle mb-2">
-            A recent utility bill, bank statement or other official document showing your name and address, as a PDF (max 5 MB).
-        </MudText>
-        <MudSelect T="string" @bind-Value="_model.DocumentType" Label="Document type" Required="true" Class="mb-3">
-            @foreach (var type in DocumentTypes)
+            <MudTextField @bind-Value="_model.Password" Label="Password" InputType="InputType.Password" Required="true" Class="mt-4"
+                          HelperText="At least 8 characters, with an uppercase letter, a lowercase letter, a digit and a symbol." />
+            <PasswordStrengthMeter Password="_model.Password" />
+
+            <MudTextField @bind-Value="_model.ConfirmPassword" Label="Confirm password" InputType="InputType.Password" Required="true" Class="mt-4"
+                          Validation="@(new Func<string, string?>(ValidateConfirmPassword))" />
+
+            @if (_error is not null)
             {
-                <MudSelectItem T="string" Value="@type">@type</MudSelectItem>
+                <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
             }
-        </MudSelect>
-        <MudFileUpload T="IBrowserFile" @bind-Files="_model.ProofOfAddressFile" Accept=".pdf">
-            <ActivatorContent>
-                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile">
-                    @(_model.ProofOfAddressFile is null ? "Choose PDF" : _model.ProofOfAddressFile.Name)
-                </MudButton>
-            </ActivatorContent>
-        </MudFileUpload>
 
-        @if (_error is not null)
-        {
-            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
-        }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6" OnClick="ContinueToAddressAsync">
+                Continue
+            </MudButton>
+        </MudForm>
 
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
-                   OnClick="SubmitAsync" Disabled="_isSubmitting">
-            @(_isSubmitting ? "Submitting..." : "Register")
-        </MudButton>
-    </MudForm>
+        <MudText Typo="Typo.body2" Class="mt-4">
+            Already have an account? <MudLink Href="/login">Sign In</MudLink>
+        </MudText>
+    }
+    else
+    {
+        <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+            A few more details for identity verification - your account can't sign in until an admin reviews and approves it.
+        </MudText>
 
-    <MudText Typo="Typo.body2" Class="mt-4">
-        Already have an account? <MudLink Href="/login">Log in</MudLink>
-    </MudText>
+        <MudForm @ref="_addressForm" Model="_model">
+            <MudDatePicker @bind-Date="_model.DateOfBirth" Label="Date of birth" Required="true" Editable="true" MaxDate="_eighteenYearsAgo" />
+
+            <MudText Typo="Typo.subtitle2" Class="mt-6 mb-2">Current address</MudText>
+            <MudTextField @bind-Value="_model.Address" Label="Street address" Required="true" />
+            <MudGrid Class="mt-0">
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_model.City" Label="City" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_model.StateProvince" Label="State / Province" Required="true" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudSelect T="string" @bind-Value="_model.Country" Label="Country" Required="true">
+                        @foreach (var country in Countries.All)
+                        {
+                            <MudSelectItem T="string" Value="@country">@country</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+
+            <MudCheckBox T="bool" Value="_permanentSameAsCurrent" ValueChanged="OnPermanentSameAsCurrentChanged"
+                         Label="Permanent address is the same as above" Class="mt-4" />
+
+            @if (!_permanentSameAsCurrent)
+            {
+                <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Permanent address</MudText>
+                <MudTextField @bind-Value="_model.PermanentAddress" Label="Permanent street address" Required="true" />
+            }
+
+            <MudText Typo="Typo.subtitle2" Class="mt-6 mb-2">Proof of address</MudText>
+            <MudText Typo="Typo.caption" Class="cl-dash-subtitle mb-2">
+                A recent utility bill, bank statement or other official document showing your name and address, as a PDF (max 5 MB).
+            </MudText>
+            <MudSelect T="string" @bind-Value="_model.DocumentType" Label="Document type" Required="true" Class="mb-3">
+                @foreach (var type in DocumentTypes)
+                {
+                    <MudSelectItem T="string" Value="@type">@type</MudSelectItem>
+                }
+            </MudSelect>
+            <MudFileUpload T="IBrowserFile" @bind-Files="_model.ProofOfAddressFile" Accept=".pdf">
+                <ActivatorContent>
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile">
+                        @(_model.ProofOfAddressFile is null ? "Choose PDF" : _model.ProofOfAddressFile.Name)
+                    </MudButton>
+                </ActivatorContent>
+            </MudFileUpload>
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                       OnClick="SubmitAsync" Disabled="_isSubmitting">
+                @(_isSubmitting ? "Submitting..." : "Register")
+            </MudButton>
+            <MudButton Variant="Variant.Text" FullWidth="true" Class="mt-2" OnClick="@(() => _step = RegisterStep.Account)">
+                Back
+            </MudButton>
+        </MudForm>
+    }
 </MudPaper>
 
 @code {
+    private enum RegisterStep { Account, Address }
+
     private static readonly string[] DocumentTypes = ["Utility bill", "Bank statement", "Government-issued address letter", "Other"];
 
-    private MudForm _form = null!;
+    private RegisterStep _step = RegisterStep.Account;
+
+    private MudForm _accountForm = null!;
+    private MudForm _addressForm = null!;
     private readonly RegisterModel _model = new();
     private bool _permanentSameAsCurrent = true;
     private string? _error;
     private bool _isSubmitting;
     private readonly DateTime _eighteenYearsAgo = DateTime.Today.AddYears(-18);
 
+    private string? ValidateConfirmPassword(string value) =>
+        value == _model.Password ? null : "Passwords don't match.";
+
     private void OnPermanentSameAsCurrentChanged(bool value)
     {
         _permanentSameAsCurrent = value;
     }
 
+    private async Task ContinueToAddressAsync()
+    {
+        await _accountForm.Validate();
+        if (!_accountForm.IsValid)
+            return;
+
+        _error = null;
+        _step = RegisterStep.Address;
+    }
+
     private async Task SubmitAsync()
     {
-        await _form.Validate();
-        if (!_form.IsValid)
+        await _addressForm.Validate();
+        if (!_addressForm.IsValid)
             return;
 
         if (_model.DateOfBirth is null)
@@ -141,8 +203,10 @@
         var result = await AuthApiClient.RegisterAsync(new RegistrationDetails(
             _model.Email,
             _model.Password,
-            _model.FullName,
-            _model.PhoneNumber,
+            _model.FirstName,
+            string.IsNullOrWhiteSpace(_model.MiddleName) ? null : _model.MiddleName,
+            _model.LastName,
+            _model.PhoneCountryCode + _model.PhoneNumber.Trim(),
             DateOnly.FromDateTime(_model.DateOfBirth.Value),
             _model.Address,
             permanentAddress,
@@ -165,10 +229,14 @@
 
     private sealed class RegisterModel
     {
+        public string FirstName { get; set; } = string.Empty;
+        public string MiddleName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public string FullName { get; set; } = string.Empty;
+        public string PhoneCountryCode { get; set; } = Kyc.PhoneCountryCodes.All[0].Code;
         public string PhoneNumber { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
         public DateTime? DateOfBirth { get; set; }
         public string Address { get; set; } = string.Empty;
         public string PermanentAddress { get; set; } = string.Empty;

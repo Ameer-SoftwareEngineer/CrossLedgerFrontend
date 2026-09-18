@@ -21,7 +21,9 @@ public sealed record AuthResult(bool IsSuccess, string? ErrorCode, string? Error
 public sealed record RegistrationDetails(
     string Email,
     string Password,
-    string FullName,
+    string FirstName,
+    string? MiddleName,
+    string LastName,
     string PhoneNumber,
     DateOnly DateOfBirth,
     string Address,
@@ -59,7 +61,8 @@ public sealed class AuthApiClient
         {
             { new StringContent(details.Email), "Email" },
             { new StringContent(details.Password), "Password" },
-            { new StringContent(details.FullName), "FullName" },
+            { new StringContent(details.FirstName), "FirstName" },
+            { new StringContent(details.LastName), "LastName" },
             { new StringContent(details.PhoneNumber), "PhoneNumber" },
             { new StringContent(details.DateOfBirth.ToString("yyyy-MM-dd")), "DateOfBirth" },
             { new StringContent(details.Address), "Address" },
@@ -69,6 +72,9 @@ public sealed class AuthApiClient
             { new StringContent(details.Country), "Country" },
             { new StringContent(details.ProofOfAddressDocumentType), "ProofOfAddressDocumentType" },
         };
+
+        if (!string.IsNullOrWhiteSpace(details.MiddleName))
+            content.Add(new StringContent(details.MiddleName), "MiddleName");
 
         await using var fileStream = details.ProofOfAddressFile.OpenReadStream(MaxDocumentSizeBytes);
         using var fileContent = new StreamContent(fileStream);
@@ -130,7 +136,7 @@ public sealed class AuthApiClient
     /// AuthorizeRouteView remounts the routed component the instant auth state changes -
     /// notifying too early wipes whatever local step state Login.razor was mid-render
     /// with. The caller notifies itself, right before it navigates away.</summary>
-    public async Task<ApiResult> VerifyTwoFactorAsync(string challengeToken, string method, string code)
+    public async Task<ApiResult> VerifyTwoFactorAsync(string challengeToken, string method, string code, bool rememberMe)
     {
         var response = await HttpCall.TrySendAsync(
             () => _http.PostAsJsonAsync("api/v1/auth/2fa/login/verify", new VerifyTwoFactorLoginRequest(challengeToken, method, code)));
@@ -146,7 +152,7 @@ public sealed class AuthApiClient
         var tokens = await response.Content.ReadFromJsonAsync<TokenResponse>()
             ?? throw new InvalidOperationException("Verification succeeded but the response body was empty.");
 
-        await _tokenStore.SaveAsync(tokens.AccessToken, tokens.RefreshToken);
+        await _tokenStore.SaveAsync(tokens.AccessToken, tokens.RefreshToken, rememberMe);
 
         return ApiResult.Success();
     }
@@ -174,7 +180,8 @@ public sealed class AuthApiClient
     /// both complete together. The recovery codes are shown once here and never again, so
     /// (see VerifyTwoFactorAsync's note) the auth state provider is deliberately not
     /// notified yet - Login.razor still needs to render the recovery-codes step first.</summary>
-    public async Task<ApiResult<IReadOnlyList<string>>> ConfirmTwoFactorTotpSetupAsync(string challengeToken, string secret, string code)
+    public async Task<ApiResult<IReadOnlyList<string>>> ConfirmTwoFactorTotpSetupAsync(
+        string challengeToken, string secret, string code, bool rememberMe)
     {
         var response = await HttpCall.TrySendAsync(() => _http.PostAsJsonAsync(
             "api/v1/auth/2fa/login/totp/confirm", new ConfirmTwoFactorLoginTotpSetupRequest(challengeToken, secret, code)));
@@ -190,9 +197,43 @@ public sealed class AuthApiClient
         var body = await response.Content.ReadFromJsonAsync<TwoFactorLoginSetupResponse>()
             ?? throw new InvalidOperationException("Setup succeeded but the response body was empty.");
 
-        await _tokenStore.SaveAsync(body.Tokens.AccessToken, body.Tokens.RefreshToken);
+        await _tokenStore.SaveAsync(body.Tokens.AccessToken, body.Tokens.RefreshToken, rememberMe);
 
         return ApiResult<IReadOnlyList<string>>.Success(body.RecoveryCodes);
+    }
+
+    /// <summary>Always reports success regardless of whether the email matches an
+    /// account - the backend deliberately never gives this call anything to
+    /// distinguish on (no account-enumeration oracle).</summary>
+    public async Task<ApiResult> ForgotPasswordAsync(string email)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsJsonAsync("api/v1/auth/forgot-password", new ForgotPasswordRequest(email)));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
+    public async Task<ApiResult> ResetPasswordAsync(string email, string token, string newPassword)
+    {
+        var response = await HttpCall.TrySendAsync(
+            () => _http.PostAsJsonAsync("api/v1/auth/reset-password", new ResetPasswordRequest(email, token, newPassword)));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
     }
 
     /// <summary>Tells every &lt;AuthorizeView&gt;/AuthorizeRouteView consumer to
