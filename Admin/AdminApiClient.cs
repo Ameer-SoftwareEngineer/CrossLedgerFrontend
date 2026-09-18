@@ -4,6 +4,8 @@ using CrossLedgerFrontend.Contracts;
 
 namespace CrossLedgerFrontend.Admin;
 
+public sealed record KycDocumentFile(byte[] Content, string ContentType, string FileName);
+
 public sealed class AdminApiClient
 {
     private readonly HttpClient _http;
@@ -79,5 +81,73 @@ public sealed class AdminApiClient
         var page = await response.Content.ReadFromJsonAsync<WebhookEventPageResponse>()
             ?? throw new InvalidOperationException("Webhook events request succeeded but the response body was empty.");
         return ApiResult<WebhookEventPageResponse>.Success(page);
+    }
+
+    public async Task<ApiResult<IReadOnlyList<PendingRegistrationResponse>>> ListPendingRegistrationsAsync()
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync("api/v1/admin/registrations/pending"));
+        if (response is null)
+            return ApiResult<IReadOnlyList<PendingRegistrationResponse>>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<IReadOnlyList<PendingRegistrationResponse>>.Failed(code, message);
+        }
+
+        var pending = await response.Content.ReadFromJsonAsync<List<PendingRegistrationResponse>>()
+            ?? new List<PendingRegistrationResponse>();
+        return ApiResult<IReadOnlyList<PendingRegistrationResponse>>.Success(pending);
+    }
+
+    public async Task<ApiResult> ApproveRegistrationAsync(Guid userId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsync($"api/v1/admin/registrations/{userId}/approve", null));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
+    public async Task<ApiResult> RejectRegistrationAsync(Guid userId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsync($"api/v1/admin/registrations/{userId}/reject", null));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
+    public async Task<ApiResult<KycDocumentFile>> GetKycDocumentAsync(Guid userId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync($"api/v1/admin/registrations/{userId}/document"));
+        if (response is null)
+            return ApiResult<KycDocumentFile>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<KycDocumentFile>.Failed(code, message);
+        }
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+        var fileName = response.Content.Headers.ContentDisposition?.FileNameStar
+            ?? response.Content.Headers.ContentDisposition?.FileName
+            ?? "document.pdf";
+
+        return ApiResult<KycDocumentFile>.Success(new KycDocumentFile(bytes, contentType, fileName.Trim('"')));
     }
 }

@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject AdminApiClient AdminApiClient
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Admin console - CrossLedger</PageTitle>
 
@@ -12,6 +13,51 @@
 </MudText>
 
 <MudTabs Elevation="1" Rounded="true" PanelClass="pa-4" ApplyEffectsToContainer="true">
+    <MudTabPanel Text="@PendingTabText">
+        @if (_isLoadingPending)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_pendingError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_pendingError</MudAlert>
+        }
+        else if (_pendingRegistrations.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No registrations waiting for review.</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Country</th>
+                        <th>Submitted</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var registration in _pendingRegistrations)
+                    {
+                        <tr>
+                            <td>@registration.FullName</td>
+                            <td>@registration.Email</td>
+                            <td>@registration.Country</td>
+                            <td>@registration.SubmittedAt.ToLocalTime().ToString("g")</td>
+                            <td>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => ReviewAsync(registration))">
+                                    Review
+                                </MudButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudTabPanel>
+
     <MudTabPanel Text="Users">
         @if (_isLoadingUsers)
         {
@@ -121,6 +167,12 @@
 @code {
     private static readonly string[] AllRoles = ["Customer", "Support", "Admin"];
 
+    private List<PendingRegistrationResponse> _pendingRegistrations = new();
+    private bool _isLoadingPending = true;
+    private string? _pendingError;
+
+    private string PendingTabText => _pendingRegistrations.Count == 0 ? "Pending registrations" : $"Pending registrations ({_pendingRegistrations.Count})";
+
     private List<UserSummaryResponse> _users = new();
     private readonly Dictionary<Guid, HashSet<string>> _editedRoles = new();
     private bool _isLoadingUsers = true;
@@ -135,8 +187,41 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadPendingRegistrationsAsync();
         await LoadUsersAsync();
         await LoadProviderHealthAsync();
+    }
+
+    private async Task LoadPendingRegistrationsAsync()
+    {
+        _isLoadingPending = true;
+        _pendingError = null;
+
+        var result = await AdminApiClient.ListPendingRegistrationsAsync();
+
+        _isLoadingPending = false;
+
+        if (!result.IsSuccess)
+        {
+            _pendingError = result.ErrorMessage;
+            return;
+        }
+
+        _pendingRegistrations = result.Value!.OrderBy(r => r.SubmittedAt).ToList();
+    }
+
+    private async Task ReviewAsync(PendingRegistrationResponse registration)
+    {
+        var parameters = new DialogParameters<KycReviewDialog> { { x => x.Registration, registration } };
+        var dialog = await DialogService.ShowAsync<KycReviewDialog>("Review registration", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            Snackbar.Add($"{registration.FullName}'s registration was reviewed.", Severity.Success);
+            await LoadPendingRegistrationsAsync();
+            await LoadUsersAsync();
+        }
     }
 
     private async Task LoadUsersAsync()

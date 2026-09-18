@@ -20,7 +20,7 @@
 
         @if (_error is not null)
         {
-            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+            <MudAlert Severity="@(_isPendingApproval ? Severity.Info : Severity.Error)" Class="mt-4">@_error</MudAlert>
         }
 
         <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
@@ -41,6 +41,7 @@
     private MudForm _form = null!;
     private readonly LoginModel _model = new();
     private string? _error;
+    private bool _isPendingApproval;
     private bool _isSubmitting;
 
     private async Task SubmitAsync()
@@ -51,6 +52,7 @@
 
         _isSubmitting = true;
         _error = null;
+        _isPendingApproval = false;
 
         var result = await AuthApiClient.LoginAsync(_model.Email, _model.Password);
 
@@ -58,7 +60,12 @@
 
         if (!result.IsSuccess)
         {
-            _error = result.Error;
+            _isPendingApproval = result.IsAccountPendingApproval;
+            _error = result.IsAccountPendingApproval
+                ? "Your account is still awaiting admin approval. You'll be able to log in once it's reviewed."
+                : result.IsAccountRegistrationRejected
+                    ? "Your registration wasn't approved. Contact support if you think this is a mistake."
+                    : result.Error;
             return;
         }
 

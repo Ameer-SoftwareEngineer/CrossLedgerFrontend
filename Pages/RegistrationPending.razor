@@ -1,0 +1,20 @@
+@page "/registration-pending"
+
+<PageTitle>Registration submitted - CrossLedger</PageTitle>
+
+<div class="cl-auth-logo">
+    <div class="cl-logo-badge cl-logo-badge-lg">
+        <CrossLedgerMark Size="30" />
+    </div>
+    <MudText Typo="Typo.h5" Class="cl-brand">CrossLedger</MudText>
+</div>
+
+<MudPaper Class="pa-8 mx-auto mt-4 cl-auth-card" Style="max-width: 460px; text-align: center;" Elevation="0">
+    <MudIcon Icon="@Icons.Material.Filled.HourglassTop" Size="Size.Large" Color="Color.Primary" Class="mb-3" />
+    <MudText Typo="Typo.h5" GutterBottom="true">Application submitted</MudText>
+    <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+        Your details and proof of address are with our team now. An admin reviews every new account before it can
+        sign in - you'll be able to log in as soon as yours is approved.
+    </MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/login">Back to log in</MudButton>
+</MudPaper>

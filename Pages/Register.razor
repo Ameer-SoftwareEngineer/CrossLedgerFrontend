@@ -11,13 +11,78 @@
     <MudText Typo="Typo.h5" Class="cl-brand">CrossLedger</MudText>
 </div>
 
-<MudPaper Class="pa-8 mx-auto mt-4 cl-auth-card" Style="max-width: 420px;" Elevation="0">
+<MudPaper Class="pa-8 mx-auto mt-4 cl-auth-card" Style="max-width: 640px;" Elevation="0">
     <MudText Typo="Typo.h5" GutterBottom="true">Create an account</MudText>
+    <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+        A few details for identity verification - a new account can't sign in until an admin reviews and approves it.
+    </MudText>
 
     <MudForm @ref="_form" Model="_model">
+        <MudText Typo="Typo.subtitle2" Class="mt-2 mb-2">Account</MudText>
         <MudTextField @bind-Value="_model.Email" Label="Email" InputType="InputType.Email" Required="true" />
         <MudTextField @bind-Value="_model.Password" Label="Password" InputType="InputType.Password" Required="true" Class="mt-4"
                       HelperText="At least 8 characters, with an uppercase letter, a lowercase letter, a digit and a symbol." />
+
+        <MudText Typo="Typo.subtitle2" Class="mt-6 mb-2">Personal details</MudText>
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.FullName" Label="Full name" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.PhoneNumber" Label="Phone number" Required="true" Placeholder="+1 555 123 4567" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="_model.DateOfBirth" Label="Date of birth" Required="true" Editable="true" MaxDate="_eighteenYearsAgo" />
+            </MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle2" Class="mt-6 mb-2">Current address</MudText>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_model.Address" Label="Street address" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_model.City" Label="City" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_model.StateProvince" Label="State / Province" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect T="string" @bind-Value="_model.Country" Label="Country" Required="true">
+                    @foreach (var country in Countries.All)
+                    {
+                        <MudSelectItem T="string" Value="@country">@country</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudCheckBox T="bool" Value="_permanentSameAsCurrent" ValueChanged="OnPermanentSameAsCurrentChanged"
+                     Label="Permanent address is the same as above" Class="mt-4" />
+
+        @if (!_permanentSameAsCurrent)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Permanent address</MudText>
+            <MudTextField @bind-Value="_model.PermanentAddress" Label="Permanent street address" Required="true" />
+        }
+
+        <MudText Typo="Typo.subtitle2" Class="mt-6 mb-2">Proof of address</MudText>
+        <MudText Typo="Typo.caption" Class="cl-dash-subtitle mb-2">
+            A recent utility bill, bank statement or other official document showing your name and address, as a PDF (max 5 MB).
+        </MudText>
+        <MudSelect T="string" @bind-Value="_model.DocumentType" Label="Document type" Required="true" Class="mb-3">
+            @foreach (var type in DocumentTypes)
+            {
+                <MudSelectItem T="string" Value="@type">@type</MudSelectItem>
+            }
+        </MudSelect>
+        <MudFileUpload T="IBrowserFile" @bind-Files="_model.ProofOfAddressFile" Accept=".pdf">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile">
+                    @(_model.ProofOfAddressFile is null ? "Choose PDF" : _model.ProofOfAddressFile.Name)
+                </MudButton>
+            </ActivatorContent>
+        </MudFileUpload>
 
         @if (_error is not null)
         {
@@ -26,7 +91,7 @@
 
         <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
                    OnClick="SubmitAsync" Disabled="_isSubmitting">
-            @(_isSubmitting ? "Creating account..." : "Register")
+            @(_isSubmitting ? "Submitting..." : "Register")
         </MudButton>
     </MudForm>
 
@@ -36,10 +101,19 @@
 </MudPaper>
 
 @code {
+    private static readonly string[] DocumentTypes = ["Utility bill", "Bank statement", "Government-issued address letter", "Other"];
+
     private MudForm _form = null!;
     private readonly RegisterModel _model = new();
+    private bool _permanentSameAsCurrent = true;
     private string? _error;
     private bool _isSubmitting;
+    private readonly DateTime _eighteenYearsAgo = DateTime.Today.AddYears(-18);
+
+    private void OnPermanentSameAsCurrentChanged(bool value)
+    {
+        _permanentSameAsCurrent = value;
+    }
 
     private async Task SubmitAsync()
     {
@@ -47,35 +121,61 @@
         if (!_form.IsValid)
             return;
 
+        if (_model.DateOfBirth is null)
+        {
+            _error = "Date of birth is required.";
+            return;
+        }
+
+        if (_model.ProofOfAddressFile is null)
+        {
+            _error = "Please attach a proof-of-address PDF.";
+            return;
+        }
+
         _isSubmitting = true;
         _error = null;
 
-        var registerResult = await AuthApiClient.RegisterAsync(_model.Email, _model.Password);
-        if (!registerResult.IsSuccess)
-        {
-            _isSubmitting = false;
-            _error = registerResult.Error;
-            return;
-        }
+        var permanentAddress = _permanentSameAsCurrent ? _model.Address : _model.PermanentAddress;
 
-        // A fresh registration logs straight in - one less step for a new user, and it
-        // exercises both endpoints in the same flow.
-        var loginResult = await AuthApiClient.LoginAsync(_model.Email, _model.Password);
+        var result = await AuthApiClient.RegisterAsync(new RegistrationDetails(
+            _model.Email,
+            _model.Password,
+            _model.FullName,
+            _model.PhoneNumber,
+            DateOnly.FromDateTime(_model.DateOfBirth.Value),
+            _model.Address,
+            permanentAddress,
+            _model.City,
+            _model.StateProvince,
+            _model.Country,
+            _model.DocumentType,
+            _model.ProofOfAddressFile));
 
         _isSubmitting = false;
 
-        if (!loginResult.IsSuccess)
+        if (!result.IsSuccess)
         {
-            Navigation.NavigateTo("/login");
+            _error = result.Error;
             return;
         }
 
-        Navigation.NavigateTo("/");
+        Navigation.NavigateTo("/registration-pending");
     }
 
     private sealed class RegisterModel
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public DateTime? DateOfBirth { get; set; }
+        public string Address { get; set; } = string.Empty;
+        public string PermanentAddress { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string StateProvince { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+        public string DocumentType { get; set; } = string.Empty;
+        public IBrowserFile? ProofOfAddressFile { get; set; }
     }
 }

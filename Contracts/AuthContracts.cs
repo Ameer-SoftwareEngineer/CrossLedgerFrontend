@@ -7,8 +7,8 @@ namespace CrossLedgerFrontend.Contracts;
 // is also what a real separately-deployed frontend does against a backend it doesn't
 // share a solution with.
 
-public sealed record RegisterRequest(string Email, string Password);
-
+// Register is multipart/form-data (it carries a PDF), so there's no RegisterRequest JSON
+// record here - AuthApiClient builds a MultipartFormDataContent by hand instead.
 public sealed record RegisterResponse(Guid UserId, string Email);
 
 public sealed record LoginRequest(string Email, string Password);

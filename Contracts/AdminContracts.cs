@@ -9,3 +9,18 @@ public sealed record ProviderHealthResponse(string ProviderCode, string Status, 
 public sealed record WebhookEventResponse(string ProviderCode, string EventId, DateTimeOffset ProcessedAt);
 
 public sealed record WebhookEventPageResponse(IReadOnlyList<WebhookEventResponse> Entries, int TotalCount, int PageNumber, int PageSize);
+
+public sealed record PendingRegistrationResponse(
+    Guid Id,
+    string Email,
+    string FullName,
+    string PhoneNumber,
+    DateOnly DateOfBirth,
+    string Address,
+    string PermanentAddress,
+    string City,
+    string StateProvince,
+    string Country,
+    string ProofOfAddressDocumentType,
+    string ProofOfAddressFileName,
+    DateTimeOffset SubmittedAt);
