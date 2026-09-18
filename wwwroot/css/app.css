@@ -1,5 +1,398 @@
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* ---- Light canvas: soft off-white (not stark white) + faint grid + two soft
+   colour blobs - keeps the same brand "grid + glow" identity as the dark theme,
+   just re-tuned for a light background instead of dropping it for plain white. ---- */
+body {
+    background-color: #F4F7F6;
+    background-image:
+        linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+        radial-gradient(circle at 12% 8%, rgba(16, 185, 129, 0.10) 0%, transparent 40%),
+        radial-gradient(circle at 88% 82%, rgba(34, 211, 238, 0.10) 0%, transparent 42%);
+    background-size: 42px 42px, 42px 42px, 100% 100%, 100% 100%;
+    background-attachment: fixed;
+}
+
+.cl-brand {
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-size: 1.2rem;
+}
+
+/* ---- Gradient logo badge with a real glow ---- */
+.cl-logo-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #06110C;
+    background: linear-gradient(135deg, #34D399 0%, #10B981 55%, #22D3EE 100%);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.4), 0 8px 20px -4px rgba(16, 185, 129, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    flex-shrink: 0;
+}
+
+.cl-logo-badge-lg {
+    width: 60px;
+    height: 60px;
+    border-radius: 18px;
+}
+
+.cl-auth-logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 3rem;
+}
+
+.cl-auth-card {
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.02), 0 24px 48px -20px rgba(16, 185, 129, 0.18) !important;
+}
+
+/* ---- Login 2FA method choice cards ---- */
+.cl-method-choice {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.cl-method-choice:hover {
+    transform: translateY(-2px);
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 8px 24px -8px rgba(16, 185, 129, 0.35) !important;
+}
+
+.cl-method-choice .mud-icon-root {
+    color: #34D399;
+    font-size: 2rem;
+}
+
+.cl-auth-card code {
+    color: #34D399;
+    background: transparent;
+}
+
+/* ---- Authenticator setup QR code: white card so the PNG's own
+   black-on-white contrast stays scannable against the dark theme ---- */
+.cl-totp-qr-wrap {
+    display: flex;
+    justify-content: center;
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px;
+}
+
+.cl-totp-qr {
+    width: 200px;
+    height: 200px;
+    image-rendering: pixelated;
+}
+
+/* ---- App bar: bright glass with a soft brand-coloured bottom edge ---- */
+.cl-appbar.mud-appbar {
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(16, 185, 129, 0.15);
+    box-shadow: 0 1px 0 rgba(16, 185, 129, 0.08), 0 8px 24px -16px rgba(15, 23, 42, 0.15);
+}
+
+.cl-user-chip {
+    height: 40px;
+    padding-left: 4px;
+    background-color: rgba(16, 185, 129, 0.08) !important;
+    border: 1px solid rgba(16, 185, 129, 0.18);
+    color: #0F172A !important;
+}
+
+.cl-nav-section {
+    color: #94A3B8;
+    letter-spacing: .1em;
+}
+
+/* ---- Sidebar ---- */
+.cl-drawer.mud-drawer {
+    border-right: 1px solid rgba(15, 23, 42, 0.06);
+    background-color: #FFFFFF;
+}
+
+.cl-drawer .mud-nav-link {
+    position: relative;
+    border-radius: 10px;
+    margin: 2px 6px;
+    overflow: hidden;
+    transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 220ms cubic-bezier(.22, .9, .32, 1);
+}
+
+/* ---- Hover: the link itself glides toward the pointer and gains a left accent
+   bar, instead of a flat colour swap - the sidebar should feel alive under the mouse ---- */
+.cl-drawer .mud-nav-link::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 3px;
+    height: 0%;
+    transform: translateY(-50%);
+    background: linear-gradient(180deg, #10B981, #22D3EE);
+    border-radius: 0 6px 6px 0;
+    transition: height 220ms ease;
+}
+
+.cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover {
+    background-color: rgba(16, 185, 129, 0.08);
+    color: #0F172A !important;
+    transform: translateX(8px);
+}
+
+.cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover .mud-icon-root {
+    color: #34D399;
+}
+
+.cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover::before {
+    height: 60%;
+}
+
+.cl-drawer .mud-nav-link.active:not(.mud-nav-link-disabled) {
+    background: linear-gradient(135deg, #10B981 0%, #0EA5B5 100%) !important;
+    color: #06110C !important;
+    font-weight: 700 !important;
+    border-inline-end-style: none !important;
+    box-shadow: 0 0 22px -2px rgba(16, 185, 129, 0.65);
+}
+
+.cl-drawer .mud-nav-link.active:not(.mud-nav-link-disabled) .mud-icon-root {
+    color: #06110C !important;
+}
+
+/* ---- Cards: a soft shadow with a whisper of brand colour instead of a flat
+   grey Material drop shadow ---- */
+.mud-paper.mud-elevation-1,
+.mud-paper.mud-elevation-2,
+.mud-paper.mud-elevation-3 {
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04), 0 16px 32px -20px rgba(16, 185, 129, 0.25) !important;
+    border: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+/* ---- Gradient primary buttons with a real glow, brighter on hover ---- */
+.mud-button-filled-primary {
+    background: linear-gradient(135deg, #10B981 0%, #22D3EE 100%) !important;
+    color: #06110C !important;
+    font-weight: 700 !important;
+    box-shadow: 0 8px 22px -6px rgba(16, 185, 129, 0.55) !important;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.mud-button-filled-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 26px -4px rgba(16, 185, 129, 0.65) !important;
+}
+
+.cl-main-content {
+    min-height: 100vh;
+}
+
+/* ---- Dashboard ---- */
+.cl-dash-title {
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.cl-dash-subtitle {
+    color: #64748B;
+}
+
+.cl-hero-card {
+    height: 100%;
+    color: #fff;
+    background: linear-gradient(135deg, #10B981 0%, #0E7490 100%);
+    background-size: 200% 200%;
+    animation: cl-hero-shimmer 8s ease infinite;
+    box-shadow: 0 16px 40px -12px rgba(16, 185, 129, 0.45) !important;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(52, 211, 153, 0.4);
+}
+
+@keyframes cl-hero-shimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.cl-hero-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.22) 0%, transparent 55%);
+    pointer-events: none;
+}
+
+.cl-hero-label {
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: .1em;
+}
+
+.cl-hero-value {
+    font-weight: 800;
+}
+
+.cl-hero-caption {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* ---- Recent transactions panel (replaces the old quick-action tiles) ---- */
+.cl-activity-card {
+    height: 100%;
+}
+
+.cl-activity-title {
+    font-weight: 700;
+}
+
+.cl-activity-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 2.5rem 1rem;
+}
+
+.cl-activity-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 4px;
+    border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.cl-activity-row:first-of-type {
+    border-top: none;
+}
+
+.cl-activity-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.cl-activity-icon-in {
+    color: #34D399;
+    background: rgba(16, 185, 129, 0.14);
+}
+
+.cl-activity-icon-out {
+    color: #FBBF24;
+    background: rgba(251, 191, 36, 0.12);
+}
+
+.cl-activity-info {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.cl-activity-label {
+    font-weight: 600;
+}
+
+.cl-activity-amount {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cl-activity-amount-in {
+    color: #34D399;
+}
+
+.cl-activity-amount-out {
+    color: #0F172A;
+}
+
+.cl-wallet-card {
+    position: relative;
+    overflow: hidden;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.cl-wallet-card:hover {
+    transform: translateY(-2px);
+}
+
+.cl-wallet-card-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.cl-wallet-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #06110C;
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: .02em;
+    flex-shrink: 0;
+}
+
+.cl-wallet-currency {
+    color: #64748B;
+    font-weight: 600;
+    letter-spacing: .04em;
+}
+
+.cl-wallet-balance {
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+.cl-wallet-accent {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+}
+
+.cl-accent-0 { background: linear-gradient(90deg, #10B981, #22D3EE); }
+.cl-accent-1 { background: linear-gradient(90deg, #22D3EE, #818CF8); }
+.cl-accent-2 { background: linear-gradient(90deg, #34D399, #FBBF24); }
+.cl-accent-3 { background: linear-gradient(90deg, #14B8A6, #10B981); }
+
+.cl-add-wallet-card {
+    height: 100%;
+    min-height: 128px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1.5px dashed rgba(16, 185, 129, 0.4);
+    color: #64748B;
+    transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
+}
+
+.cl-add-wallet-card:hover {
+    border-color: #34D399;
+    color: #34D399;
+    background-color: rgba(16, 185, 129, 0.06);
 }
 
 h1:focus {

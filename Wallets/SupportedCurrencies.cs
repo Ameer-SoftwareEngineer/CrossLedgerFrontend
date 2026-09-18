@@ -14,4 +14,5 @@ public static class SupportedCurrencies
 
     public static string Format(decimal amount, string currency) =>
         amount.ToString(IsZeroDecimal(currency) ? "N0" : "N2");
+
 }

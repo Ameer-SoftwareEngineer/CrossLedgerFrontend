@@ -2,70 +2,166 @@
 @attribute [Authorize]
 @inject WalletApiClient WalletApiClient
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 
-<PageTitle>Wallets - CrossLedger</PageTitle>
+<PageTitle>Dashboard - CrossLedger</PageTitle>
 
-<MudText Typo="Typo.h4" GutterBottom="true">Your wallets</MudText>
+<div class="mb-8">
+    <MudText Typo="Typo.h4" Class="cl-dash-title">@Greeting</MudText>
+    <MudText Typo="Typo.body1" Class="cl-dash-subtitle">Here's what's happening across your wallets today.</MudText>
+</div>
 
 @if (_isLoading)
 {
     <MudProgressCircular Indeterminate="true" />
 }
-else if (_wallets.Count == 0)
-{
-    <MudText Typo="Typo.body1" Class="mb-4">You don't have any wallets yet. Add your first currency below.</MudText>
-}
 else
 {
-    <MudGrid Class="mb-6">
-        @foreach (var wallet in _wallets)
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-6">@_error</MudAlert>
+    }
+
+    <MudGrid Class="mb-8">
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-6 cl-hero-card" Elevation="0">
+                <MudText Typo="Typo.overline" Class="cl-hero-label">Total wallets</MudText>
+                <MudText Typo="Typo.h3" Class="cl-hero-value">@_wallets.Count</MudText>
+                <MudText Typo="Typo.body2" Class="cl-hero-caption">
+                    @(_wallets.Count == 0 ? "No currencies yet" : string.Join(" · ", _wallets.Select(w => w.Currency)))
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-5 cl-activity-card" Elevation="0">
+                <div class="d-flex align-center justify-space-between mb-2">
+                    <MudText Typo="Typo.subtitle1" Class="cl-activity-title">Recent transactions</MudText>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" Href="/transactions">View all</MudButton>
+                </div>
+
+                @if (_isActivityLoading)
+                {
+                    <div class="cl-activity-empty">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                    </div>
+                }
+                else if (_recentActivity.Count == 0)
+                {
+                    <div class="cl-activity-empty">
+                        <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Large" Class="mb-2 cl-dash-subtitle" />
+                        <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No transactions yet.</MudText>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/send" Class="mt-1">Send your first transfer</MudButton>
+                    </div>
+                }
+                else
+                {
+                    @foreach (var entry in _recentActivity)
+                    {
+                        var isCredit = entry.Direction == "Credit";
+                        <div class="cl-activity-row">
+                            <div class="cl-activity-icon @(isCredit ? "cl-activity-icon-in" : "cl-activity-icon-out")">
+                                <MudIcon Icon="@(isCredit ? Icons.Material.Filled.ArrowDownward : Icons.Material.Filled.ArrowUpward)" Size="Size.Small" />
+                            </div>
+                            <div class="cl-activity-info">
+                                <MudText Typo="Typo.body2" Class="cl-activity-label">@(isCredit ? "Received" : "Sent") · @entry.Currency</MudText>
+                                <MudText Typo="Typo.caption" Class="cl-dash-subtitle">@entry.PostedAt.ToLocalTime().ToString("dd MMM, HH:mm")</MudText>
+                            </div>
+                            <MudText Typo="Typo.body1" Class="@("cl-activity-amount " + (isCredit ? "cl-activity-amount-in" : "cl-activity-amount-out"))">
+                                @(isCredit ? "+" : "-")@SupportedCurrencies.Format(entry.Amount, entry.Currency)
+                            </MudText>
+                        </div>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.h6" Class="mb-4">Your wallets</MudText>
+
+    <MudGrid>
+        @for (var i = 0; i < _wallets.Count; i++)
         {
+            var wallet = _wallets[i];
             <MudItem xs="12" sm="6" md="4">
-                <MudPaper Class="pa-4" Elevation="2">
-                    <MudText Typo="Typo.h6">@wallet.Currency</MudText>
-                    <MudText Typo="Typo.h4">@SupportedCurrencies.Format(wallet.Balance, wallet.Currency)</MudText>
+                <MudPaper Class="pa-5 cl-wallet-card" Elevation="0">
+                    <div class="cl-wallet-accent @AccentClass(i)"></div>
+                    <div class="cl-wallet-card-top">
+                        <div class="cl-wallet-badge @AccentClass(i)">@wallet.Currency.Substring(0, 2)</div>
+                        <MudText Typo="Typo.subtitle2" Class="cl-wallet-currency">@wallet.Currency</MudText>
+                    </div>
+                    <MudText Typo="Typo.h4" Class="cl-wallet-balance">@SupportedCurrencies.Format(wallet.Balance, wallet.Currency)</MudText>
                 </MudPaper>
             </MudItem>
         }
+
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Class="pa-5 cl-add-wallet-card" Elevation="0" @onclick="() => _showAddForm = !_showAddForm">
+                <MudIcon Icon="@Icons.Material.Filled.AddCircleOutline" Size="Size.Large" />
+                <MudText Typo="Typo.body1" Class="mt-2">Add currency</MudText>
+            </MudPaper>
+        </MudItem>
     </MudGrid>
-}
 
-<MudDivider Class="my-6" />
-
-<MudText Typo="Typo.h6" GutterBottom="true">Add a currency wallet</MudText>
-<MudGrid>
-    <MudItem xs="12" sm="6" md="4">
-        <MudSelect T="string" @bind-Value="_newCurrency" Label="Currency" Disabled="!AvailableCurrencies.Any()">
-            @foreach (var currency in AvailableCurrencies)
-            {
-                <MudSelectItem T="string" Value="@currency">@currency</MudSelectItem>
-            }
-        </MudSelect>
-    </MudItem>
-    <MudItem xs="12" sm="6" md="4" Class="d-flex align-center">
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateWalletAsync" Disabled="_isCreating || _newCurrency is null">
-            @(_isCreating ? "Adding..." : "Add wallet")
-        </MudButton>
-    </MudItem>
-</MudGrid>
-
-@if (_error is not null)
-{
-    <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+    @if (_showAddForm || _wallets.Count == 0)
+    {
+        <MudPaper Class="pa-6 mt-6" Style="max-width: 480px;" Elevation="0">
+            <MudText Typo="Typo.subtitle1" GutterBottom="true">Add a currency wallet</MudText>
+            <MudGrid>
+                <MudItem xs="8">
+                    <MudSelect T="string" @bind-Value="_newCurrency" Label="Currency" Disabled="!AvailableCurrencies.Any()">
+                        @foreach (var currency in AvailableCurrencies)
+                        {
+                            <MudSelectItem T="string" Value="@currency">@currency</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="4" Class="d-flex align-center">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                               OnClick="CreateWalletAsync" Disabled="_isCreating || _newCurrency is null">
+                        @(_isCreating ? "Adding..." : "Add")
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    }
 }
 
 @code {
     private List<WalletSummaryResponse> _wallets = new();
+    private List<TransactionHistoryEntryResponse> _recentActivity = new();
     private bool _isLoading = true;
+    private bool _isActivityLoading = true;
     private bool _isCreating;
+    private bool _showAddForm;
     private string? _newCurrency;
     private string? _error;
+    private string? _email;
+
+    private string Greeting
+    {
+        get
+        {
+            var hour = DateTime.Now.Hour;
+            var timeOfDay = hour switch
+            {
+                < 12 => "morning",
+                < 17 => "afternoon",
+                _ => "evening",
+            };
+            return $"Good {timeOfDay}{(_email is null ? "" : $", {_email.Split('@')[0]}")}";
+        }
+    }
 
     private IEnumerable<string> AvailableCurrencies =>
         SupportedCurrencies.All.Except(_wallets.Select(w => w.Currency));
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _email = authState.User.FindFirst("email")?.Value;
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
@@ -76,11 +172,34 @@ else
         if (!result.IsSuccess)
         {
             _error = result.ErrorMessage;
+            _isActivityLoading = false;
             return;
         }
 
         _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
         _newCurrency = AvailableCurrencies.FirstOrDefault();
+
+        await LoadRecentActivityAsync();
+    }
+
+    /// <summary>The API only exposes transaction history per wallet, so recent activity
+    /// across all of the user's wallets is assembled client-side: a small page from each
+    /// wallet, merged and re-sorted by date.</summary>
+    private async Task LoadRecentActivityAsync()
+    {
+        _isActivityLoading = true;
+
+        var pages = await Task.WhenAll(_wallets.Select(w =>
+            WalletApiClient.GetTransactionsAsync(w.WalletId, pageNumber: 1, pageSize: 5, fromDate: null, toDate: null)));
+
+        _recentActivity = pages
+            .Where(p => p.IsSuccess)
+            .SelectMany(p => p.Value!.Entries)
+            .OrderByDescending(e => e.PostedAt)
+            .Take(5)
+            .ToList();
+
+        _isActivityLoading = false;
     }
 
     private async Task CreateWalletAsync()
@@ -104,6 +223,9 @@ else
         }
 
         Snackbar.Add($"{_newCurrency} wallet added.", Severity.Success);
+        _showAddForm = false;
         await LoadAsync();
     }
+
+    private static string AccentClass(int index) => $"cl-accent-{index % 4}";
 }
