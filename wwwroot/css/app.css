@@ -2,23 +2,25 @@ html, body {
     font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
-/* ---- Ambient gradient backdrop behind everything ---- */
+/* ---- Dark canvas: base colour + faint grid + two glowing colour blobs ---- */
 body {
-    background-color: #F6F5FD;
+    background-color: #0A0E17;
     background-image:
-        radial-gradient(circle at 8% 8%, rgba(79, 70, 229, 0.10) 0%, transparent 38%),
-        radial-gradient(circle at 92% 18%, rgba(124, 58, 237, 0.10) 0%, transparent 42%),
-        radial-gradient(circle at 50% 100%, rgba(6, 182, 212, 0.08) 0%, transparent 45%);
+        linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+        radial-gradient(circle at 12% 8%, rgba(16, 185, 129, 0.20) 0%, transparent 40%),
+        radial-gradient(circle at 88% 82%, rgba(34, 211, 238, 0.16) 0%, transparent 42%);
+    background-size: 42px 42px, 42px 42px, 100% 100%, 100% 100%;
     background-attachment: fixed;
 }
 
 .cl-brand {
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-size: 1.2rem;
 }
 
-/* ---- Gradient logo badge: the "3D" brand mark ---- */
+/* ---- Gradient logo badge with a real glow ---- */
 .cl-logo-badge {
     width: 38px;
     height: 38px;
@@ -26,16 +28,16 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
-    background: linear-gradient(135deg, #6366F1 0%, #7C3AED 55%, #06B6D4 100%);
-    box-shadow: 0 6px 14px -4px rgba(79, 70, 229, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    color: #06110C;
+    background: linear-gradient(135deg, #34D399 0%, #10B981 55%, #22D3EE 100%);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.4), 0 8px 20px -4px rgba(16, 185, 129, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.4);
     flex-shrink: 0;
 }
 
 .cl-logo-badge-lg {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
+    width: 60px;
+    height: 60px;
+    border-radius: 18px;
 }
 
 .cl-auth-logo {
@@ -47,35 +49,36 @@ body {
 }
 
 .cl-auth-card {
-    border: 1px solid rgba(79, 70, 229, 0.08);
-    box-shadow: 0 1px 2px rgba(30, 27, 58, 0.04), 0 20px 40px -16px rgba(30, 27, 58, 0.18) !important;
+    border: 1px solid rgba(16, 185, 129, 0.15);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 24px 48px -20px rgba(0, 0, 0, 0.6) !important;
 }
 
-/* ---- Glass app bar ---- */
+/* ---- App bar: dark glass with a glowing bottom edge ---- */
 .cl-appbar.mud-appbar {
-    background-color: rgba(255, 255, 255, 0.78) !important;
+    background-color: rgba(13, 18, 32, 0.85) !important;
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid rgba(79, 70, 229, 0.08);
-    box-shadow: 0 1px 0 rgba(17, 12, 46, 0.02), 0 8px 24px -12px rgba(30, 27, 58, 0.12);
+    border-bottom: 1px solid rgba(16, 185, 129, 0.18);
+    box-shadow: 0 1px 0 rgba(16, 185, 129, 0.08), 0 8px 24px -12px rgba(0, 0, 0, 0.5);
 }
 
 .cl-user-chip {
     height: 40px;
     padding-left: 4px;
-    background-color: rgba(79, 70, 229, 0.06) !important;
-    border: 1px solid rgba(79, 70, 229, 0.12);
+    background-color: rgba(16, 185, 129, 0.08) !important;
+    border: 1px solid rgba(16, 185, 129, 0.18);
+    color: #F1F5F9 !important;
 }
 
 .cl-nav-section {
-    color: #A5A3C7;
-    letter-spacing: .08em;
+    color: #5B6478;
+    letter-spacing: .1em;
 }
 
 /* ---- Sidebar ---- */
 .cl-drawer.mud-drawer {
-    border-right: 1px solid rgba(79, 70, 229, 0.08);
-    background-color: rgba(255, 255, 255, 0.85);
+    border-right: 1px solid rgba(16, 185, 129, 0.12);
+    background-color: rgba(13, 18, 32, 0.9);
 }
 
 .cl-drawer .mud-nav-link {
@@ -85,34 +88,38 @@ body {
 }
 
 .cl-drawer .mud-nav-link.active:not(.mud-nav-link-disabled) {
-    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important;
-    color: #fff !important;
+    background: linear-gradient(135deg, #10B981 0%, #0EA5B5 100%) !important;
+    color: #06110C !important;
+    font-weight: 700 !important;
     border-inline-end-style: none !important;
-    box-shadow: 0 8px 18px -6px rgba(79, 70, 229, 0.55);
+    box-shadow: 0 0 22px -2px rgba(16, 185, 129, 0.65);
 }
 
 .cl-drawer .mud-nav-link.active:not(.mud-nav-link-disabled) .mud-icon-root {
-    color: #fff !important;
+    color: #06110C !important;
 }
 
-/* ---- Cards: soft layered "3D" elevation instead of flat Material shadows ---- */
+/* ---- Cards: a hairline glow border instead of a Material drop shadow, which
+   doesn't read against an already-dark backdrop ---- */
 .mud-paper.mud-elevation-1,
 .mud-paper.mud-elevation-2,
 .mud-paper.mud-elevation-3 {
-    box-shadow: 0 1px 2px rgba(30, 27, 58, 0.04), 0 12px 28px -12px rgba(30, 27, 58, 0.16) !important;
-    border: 1px solid rgba(79, 70, 229, 0.06);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.045), 0 16px 32px -18px rgba(0, 0, 0, 0.65) !important;
+    border: 1px solid rgba(16, 185, 129, 0.10);
 }
 
-/* ---- Gradient primary buttons with a lift-on-hover glow ---- */
+/* ---- Gradient primary buttons with a real glow, brighter on hover ---- */
 .mud-button-filled-primary {
-    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important;
-    box-shadow: 0 6px 16px -6px rgba(79, 70, 229, 0.55) !important;
+    background: linear-gradient(135deg, #10B981 0%, #22D3EE 100%) !important;
+    color: #06110C !important;
+    font-weight: 700 !important;
+    box-shadow: 0 0 22px -4px rgba(16, 185, 129, 0.7) !important;
     transition: transform 150ms ease, box-shadow 150ms ease;
 }
 
 .mud-button-filled-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 22px -6px rgba(79, 70, 229, 0.6) !important;
+    box-shadow: 0 0 28px -2px rgba(16, 185, 129, 0.85) !important;
 }
 
 .cl-main-content {
@@ -121,42 +128,51 @@ body {
 
 /* ---- Dashboard ---- */
 .cl-dash-title {
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-weight: 800;
+    letter-spacing: -0.03em;
 }
 
 .cl-dash-subtitle {
-    color: #6B6890;
+    color: #7C8397;
 }
 
 .cl-hero-card {
     height: 100%;
     color: #fff;
-    background: linear-gradient(135deg, #4338CA 0%, #6D28D9 55%, #0891B2 100%);
-    box-shadow: 0 12px 28px -10px rgba(67, 56, 202, 0.55) !important;
+    background: linear-gradient(135deg, #065F46 0%, #0E7490 100%);
+    background-size: 200% 200%;
+    animation: cl-hero-shimmer 8s ease infinite;
+    box-shadow: 0 0 40px -8px rgba(16, 185, 129, 0.55) !important;
     position: relative;
     overflow: hidden;
+    border: 1px solid rgba(52, 211, 153, 0.4);
+}
+
+@keyframes cl-hero-shimmer {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
 }
 
 .cl-hero-card::after {
     content: "";
     position: absolute;
     inset: 0;
-    background: radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.18) 0%, transparent 55%);
+    background: radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.22) 0%, transparent 55%);
     pointer-events: none;
 }
 
 .cl-hero-label {
-    color: rgba(255, 255, 255, 0.75);
-    letter-spacing: .08em;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: .1em;
 }
 
 .cl-hero-value {
-    font-weight: 700;
+    font-weight: 800;
 }
 
 .cl-hero-caption {
-    color: rgba(255, 255, 255, 0.75);
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .cl-quick-action {
@@ -168,13 +184,13 @@ body {
     text-align: center;
     cursor: pointer;
     transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
-    border: 1px solid rgba(79, 70, 229, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.12);
 }
 
 .cl-quick-action:hover {
     transform: translateY(-2px);
-    border-color: rgba(79, 70, 229, 0.35);
-    box-shadow: 0 10px 22px -10px rgba(79, 70, 229, 0.35) !important;
+    border-color: rgba(16, 185, 129, 0.55);
+    box-shadow: 0 0 24px -6px rgba(16, 185, 129, 0.5) !important;
 }
 
 .cl-quick-icon {
@@ -184,8 +200,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #4F46E5;
-    background: rgba(79, 70, 229, 0.10);
+    color: #34D399;
+    background: rgba(16, 185, 129, 0.12);
 }
 
 .cl-wallet-card {
@@ -212,21 +228,21 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff;
+    color: #06110C;
     font-size: 0.7rem;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: .02em;
     flex-shrink: 0;
 }
 
 .cl-wallet-currency {
-    color: #6B6890;
+    color: #8B92A8;
     font-weight: 600;
     letter-spacing: .04em;
 }
 
 .cl-wallet-balance {
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: -0.01em;
 }
 
@@ -235,13 +251,13 @@ body {
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
+    height: 3px;
 }
 
-.cl-accent-0 { background: linear-gradient(90deg, #4F46E5, #7C3AED); }
-.cl-accent-1 { background: linear-gradient(90deg, #0891B2, #06B6D4); }
-.cl-accent-2 { background: linear-gradient(90deg, #7C3AED, #DB2777); }
-.cl-accent-3 { background: linear-gradient(90deg, #059669, #06B6D4); }
+.cl-accent-0 { background: linear-gradient(90deg, #10B981, #22D3EE); }
+.cl-accent-1 { background: linear-gradient(90deg, #22D3EE, #818CF8); }
+.cl-accent-2 { background: linear-gradient(90deg, #34D399, #FBBF24); }
+.cl-accent-3 { background: linear-gradient(90deg, #14B8A6, #10B981); }
 
 .cl-add-wallet-card {
     height: 100%;
@@ -251,15 +267,15 @@ body {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    border: 1.5px dashed rgba(79, 70, 229, 0.3);
-    color: #6B6890;
+    border: 1.5px dashed rgba(16, 185, 129, 0.35);
+    color: #7C8397;
     transition: border-color 150ms ease, color 150ms ease, background-color 150ms ease;
 }
 
 .cl-add-wallet-card:hover {
-    border-color: #4F46E5;
-    color: #4F46E5;
-    background-color: rgba(79, 70, 229, 0.04);
+    border-color: #34D399;
+    color: #34D399;
+    background-color: rgba(16, 185, 129, 0.06);
 }
 
 h1:focus {
