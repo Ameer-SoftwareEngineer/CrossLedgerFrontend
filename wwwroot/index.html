@@ -10,9 +10,95 @@
     <link rel="stylesheet" href="_content/MudBlazor/MudBlazor.min.css" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
+    <style>
+        /* Inlined (not app.css) so the splash paints immediately, before the external
+           stylesheet has necessarily finished loading - it has to be ready the instant
+           the page appears, not after a network round trip. */
+        #cl-splash {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 18px;
+            background-color: #0A0E17;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+                radial-gradient(circle at 12% 8%, rgba(16, 185, 129, 0.20) 0%, transparent 40%),
+                radial-gradient(circle at 88% 82%, rgba(34, 211, 238, 0.16) 0%, transparent 42%);
+            background-size: 42px 42px, 42px 42px, 100% 100%, 100% 100%;
+            transition: opacity 400ms ease;
+        }
+
+        #cl-splash-mark {
+            width: 96px;
+            height: 96px;
+            box-sizing: border-box;
+            padding: 24px;
+            border-radius: 26px;
+            background: linear-gradient(135deg, #34D399 0%, #10B981 55%, #22D3EE 100%);
+            box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.4), 0 20px 50px -12px rgba(16, 185, 129, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            transform-origin: center;
+            animation: cl-splash-pulse 1.8s ease-in-out infinite;
+            transition: transform 550ms cubic-bezier(.4, 0, .2, 1), border-radius 550ms ease;
+        }
+
+        #cl-splash-mark svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #cl-splash-text {
+            font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-weight: 800;
+            font-size: 1.3rem;
+            letter-spacing: -0.02em;
+            color: #F1F5F9;
+            transition: opacity 250ms ease;
+        }
+
+        @keyframes cl-splash-pulse {
+            0%, 100% { box-shadow: 0 0 0 1px rgba(16, 185, 129, .4), 0 20px 50px -12px rgba(16, 185, 129, .65), inset 0 1px 0 rgba(255, 255, 255, .4); }
+            50% { box-shadow: 0 0 0 1px rgba(16, 185, 129, .6), 0 26px 60px -10px rgba(16, 185, 129, .85), inset 0 1px 0 rgba(255, 255, 255, .5); }
+        }
+
+        /* The app's real header logo sits ~24px from the left, vertically centered in
+           the app bar - this doesn't have to land on it pixel-perfect, the motion plus
+           the fade underneath is what sells the handoff. */
+        #cl-splash.cl-splash-ready #cl-splash-mark {
+            transform: translate(calc(-50vw + 43px), calc(-50vh + 32px)) scale(0.4);
+            border-radius: 11px;
+            animation: none;
+        }
+
+        #cl-splash.cl-splash-ready #cl-splash-text {
+            opacity: 0;
+        }
+
+        #cl-splash.cl-splash-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
 </head>
 
 <body>
+    <div id="cl-splash">
+        <div id="cl-splash-mark">
+            <svg viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+                <rect x="6" y="8.3" width="16" height="3.4" rx="1.7" fill="#06110C" fill-opacity="0.75" />
+                <rect x="6" y="16.3" width="24" height="3.4" rx="1.7" fill="#06110C" />
+                <rect x="6" y="24.3" width="12" height="3.4" rx="1.7" fill="#06110C" fill-opacity="0.75" />
+                <line x1="27.5" y1="4.5" x2="8.5" y2="31.5" stroke="#06110C" stroke-width="3.4" stroke-linecap="round" />
+            </svg>
+        </div>
+        <div id="cl-splash-text">CrossLedger</div>
+    </div>
+
     <div id="app">
         <svg class="loading-progress">
             <circle r="40%" cx="50%" cy="50%" />
@@ -28,6 +114,35 @@
     </div>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="js/download.js"></script>
+    <script>
+        (function () {
+            var splash = document.getElementById('cl-splash');
+            var app = document.getElementById('app');
+            var settled = false;
+
+            function settle() {
+                if (settled) return;
+                settled = true;
+                splash.classList.add('cl-splash-ready');
+                window.setTimeout(function () {
+                    splash.classList.add('cl-splash-hidden');
+                    window.setTimeout(function () { splash.remove(); }, 450);
+                }, 600);
+            }
+
+            // Blazor swaps #app's placeholder content for the real rendered app in one
+            // shot once the first component tree is ready - that's the "app has opened"
+            // signal, not a fixed timer that could fire too early or too late.
+            var observer = new MutationObserver(function () {
+                observer.disconnect();
+                settle();
+            });
+            observer.observe(app, { childList: true });
+
+            // Safety net: a slow or failed boot must never leave the splash on screen forever.
+            window.setTimeout(settle, 15000);
+        })();
+    </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 
