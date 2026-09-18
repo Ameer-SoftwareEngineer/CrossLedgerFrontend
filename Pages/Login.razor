@@ -11,68 +11,323 @@
     <MudText Typo="Typo.h5" Class="cl-brand">CrossLedger</MudText>
 </div>
 
-<MudPaper Class="pa-8 mx-auto mt-4 cl-auth-card" Style="max-width: 420px;" Elevation="0">
-    <MudText Typo="Typo.h5" GutterBottom="true">Log in</MudText>
+<MudPaper Class="pa-8 mx-auto mt-4 cl-auth-card" Style="max-width: 440px;" Elevation="0">
+    @if (_step == LoginStep.Credentials)
+    {
+        <MudText Typo="Typo.h5" GutterBottom="true">Log in</MudText>
 
-    <MudForm @ref="_form" Model="_model">
-        <MudTextField @bind-Value="_model.Email" Label="Email" InputType="InputType.Email" Required="true" />
-        <MudTextField @bind-Value="_model.Password" Label="Password" InputType="InputType.Password" Required="true" Class="mt-4" />
+        <MudForm @ref="_credentialsForm" Model="_credentialsModel">
+            <MudTextField @bind-Value="_credentialsModel.Email" Label="Email" InputType="InputType.Email" Required="true" />
+            <MudTextField @bind-Value="_credentialsModel.Password" Label="Password" InputType="InputType.Password" Required="true" Class="mt-4" />
+
+            @if (_error is not null)
+            {
+                <MudAlert Severity="@(_isInfoMessage ? Severity.Info : Severity.Error)" Class="mt-4">@_error</MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                       OnClick="SubmitCredentialsAsync" Disabled="_isSubmitting">
+                @(_isSubmitting ? "Logging in..." : "Log in")
+            </MudButton>
+        </MudForm>
+
+        <MudText Typo="Typo.body2" Class="mt-4">
+            Don't have an account? <MudLink Href="/register">Register</MudLink>
+        </MudText>
+    }
+    else if (_step == LoginStep.ChooseMethod)
+    {
+        <MudText Typo="Typo.h5" GutterBottom="true">Verify it's you</MudText>
+        <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+            @(_requiresSetup ? "Choose how you'd like to verify your sign-ins from now on." : "Choose a verification method.")
+        </MudText>
+
+        <MudStack Spacing="3">
+            @if (_availableMethods.Contains("Totp"))
+            {
+                <MudPaper Class="pa-4 cl-method-choice" Elevation="0" @onclick="@(() => SelectMethodAsync("Totp"))">
+                    <MudIcon Icon="@Icons.Material.Filled.VpnKey" Class="mr-3" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">Authenticator app</MudText>
+                        <MudText Typo="Typo.caption" Class="cl-dash-subtitle">Google Authenticator, Authy, or similar</MudText>
+                    </div>
+                </MudPaper>
+            }
+            @if (_availableMethods.Contains("Sms"))
+            {
+                <MudPaper Class="pa-4 cl-method-choice" Elevation="0" @onclick="@(() => SelectMethodAsync("Sms"))">
+                    <MudIcon Icon="@Icons.Material.Filled.Sms" Class="mr-3" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2">Text message</MudText>
+                        <MudText Typo="Typo.caption" Class="cl-dash-subtitle">@(_maskedPhoneNumber ?? "SMS to your phone on file")</MudText>
+                    </div>
+                </MudPaper>
+            }
+        </MudStack>
 
         @if (_error is not null)
         {
-            <MudAlert Severity="@(_isPendingApproval ? Severity.Info : Severity.Error)" Class="mt-4">@_error</MudAlert>
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+    }
+    else if (_step == LoginStep.TotpSetup)
+    {
+        <MudText Typo="Typo.h5" GutterBottom="true">Set up your authenticator</MudText>
+        <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+            Add this key to Google Authenticator, Authy, or a similar app, then enter the 6-digit code it shows.
+        </MudText>
+
+        <MudPaper Class="pa-4" Elevation="0" Style="background: rgba(255,255,255,0.03);">
+            <MudText Typo="Typo.caption" Class="cl-dash-subtitle">Secret key</MudText>
+            <MudText Typo="Typo.body1" Style="font-family: monospace; word-break: break-all;">@_totpSecret</MudText>
+        </MudPaper>
+
+        <MudTextField @bind-Value="_code" Label="6-digit code" MaxLength="6" Immediate="true" AutoFocus="true" Class="mt-4" />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
         }
 
         <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
-                   OnClick="SubmitAsync" Disabled="_isSubmitting">
-            @(_isSubmitting ? "Logging in..." : "Log in")
+                   OnClick="SubmitTotpSetupAsync" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Verifying..." : "Verify and finish setup")
         </MudButton>
-    </MudForm>
+        <MudButton Variant="Variant.Text" FullWidth="true" Class="mt-2" OnClick="@(() => _step = LoginStep.ChooseMethod)">
+            Choose a different method
+        </MudButton>
+    }
+    else if (_step == LoginStep.TotpCode)
+    {
+        <MudText Typo="Typo.h5" GutterBottom="true">Enter your code</MudText>
+        <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">Open your authenticator app and enter the current code.</MudText>
 
-    <MudText Typo="Typo.body2" Class="mt-4">
-        Don't have an account? <MudLink Href="/register">Register</MudLink>
-    </MudText>
+        <MudTextField @bind-Value="_code" Label="6-digit code" MaxLength="6" Immediate="true" AutoFocus="true" />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                   OnClick="@(() => SubmitCodeAsync("Totp"))" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Verifying..." : "Verify")
+        </MudButton>
+    }
+    else if (_step == LoginStep.SmsCode)
+    {
+        <MudText Typo="Typo.h5" GutterBottom="true">Enter your code</MudText>
+        <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+            We sent a code to @(_maskedPhoneNumber ?? "your phone on file").
+        </MudText>
+
+        <MudTextField @bind-Value="_code" Label="6-digit code" MaxLength="6" Immediate="true" AutoFocus="true" />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                   OnClick="@(() => SubmitCodeAsync("Sms"))" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Verifying..." : "Verify")
+        </MudButton>
+        <MudButton Variant="Variant.Text" FullWidth="true" Class="mt-2" OnClick="ResendSmsAsync" Disabled="_isSubmitting">
+            Resend code
+        </MudButton>
+    }
+    else if (_step == LoginStep.RecoveryCodes)
+    {
+        <MudText Typo="Typo.h5" GutterBottom="true">Save your recovery codes</MudText>
+        <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+            Each code lets you sign in once if you lose access to your authenticator. Store them somewhere safe - they won't be shown again.
+        </MudText>
+
+        <MudPaper Class="pa-4" Elevation="0" Style="background: rgba(255,255,255,0.03);">
+            <MudGrid>
+                @foreach (var recoveryCode in _recoveryCodes)
+                {
+                    <MudItem xs="6"><code>@recoveryCode</code></MudItem>
+                }
+            </MudGrid>
+        </MudPaper>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6" OnClick="FinishAsync">
+            I've saved these - continue
+        </MudButton>
+    }
 </MudPaper>
 
 @code {
+    private enum LoginStep { Credentials, ChooseMethod, TotpSetup, TotpCode, SmsCode, RecoveryCodes }
+
     [SupplyParameterFromQuery]
     public string? ReturnUrl { get; set; }
 
-    private MudForm _form = null!;
-    private readonly LoginModel _model = new();
+    private LoginStep _step = LoginStep.Credentials;
+
+    private MudForm _credentialsForm = null!;
+    private readonly CredentialsModel _credentialsModel = new();
+
+    private string? _challengeToken;
+    private bool _requiresSetup;
+    private IReadOnlyList<string> _availableMethods = [];
+    private string? _maskedPhoneNumber;
+
+    private string _code = string.Empty;
+    private string? _totpSecret;
+    private IReadOnlyList<string> _recoveryCodes = [];
+
     private string? _error;
-    private bool _isPendingApproval;
+    private bool _isInfoMessage;
     private bool _isSubmitting;
 
-    private async Task SubmitAsync()
+    private async Task SubmitCredentialsAsync()
     {
-        await _form.Validate();
-        if (!_form.IsValid)
+        await _credentialsForm.Validate();
+        if (!_credentialsForm.IsValid)
             return;
 
         _isSubmitting = true;
         _error = null;
-        _isPendingApproval = false;
+        _isInfoMessage = false;
 
-        var result = await AuthApiClient.LoginAsync(_model.Email, _model.Password);
+        var result = await AuthApiClient.LoginAsync(_credentialsModel.Email, _credentialsModel.Password);
 
         _isSubmitting = false;
 
         if (!result.IsSuccess)
         {
-            _isPendingApproval = result.IsAccountPendingApproval;
-            _error = result.IsAccountPendingApproval
-                ? "Your account is still awaiting admin approval. You'll be able to log in once it's reviewed."
-                : result.IsAccountRegistrationRejected
-                    ? "Your registration wasn't approved. Contact support if you think this is a mistake."
-                    : result.Error;
+            _isInfoMessage = result.ErrorCode is "ACCOUNT_PENDING_APPROVAL";
+            _error = result.ErrorCode switch
+            {
+                "ACCOUNT_PENDING_APPROVAL" => "Your account is still awaiting admin approval. You'll be able to log in once it's reviewed.",
+                "ACCOUNT_REGISTRATION_REJECTED" => "Your registration wasn't approved. Contact support if you think this is a mistake.",
+                _ => result.ErrorMessage,
+            };
             return;
         }
 
+        var challenge = result.Value!;
+        _challengeToken = challenge.ChallengeToken;
+        _requiresSetup = challenge.RequiresSetup;
+        _availableMethods = challenge.AvailableMethods;
+        _maskedPhoneNumber = challenge.MaskedPhoneNumber;
+
+        if (_availableMethods.Count == 1)
+        {
+            await SelectMethodAsync(_availableMethods[0]);
+        }
+        else
+        {
+            _step = LoginStep.ChooseMethod;
+        }
+    }
+
+    private async Task SelectMethodAsync(string method)
+    {
+        _error = null;
+        _code = string.Empty;
+
+        if (method == "Sms")
+        {
+            _isSubmitting = true;
+            var result = await AuthApiClient.SendTwoFactorSmsAsync(_challengeToken!);
+            _isSubmitting = false;
+
+            if (!result.IsSuccess)
+            {
+                _error = result.ErrorMessage;
+                _step = LoginStep.ChooseMethod;
+                return;
+            }
+
+            _step = LoginStep.SmsCode;
+        }
+        else if (_requiresSetup)
+        {
+            _isSubmitting = true;
+            var result = await AuthApiClient.BeginTwoFactorTotpSetupAsync(_challengeToken!);
+            _isSubmitting = false;
+
+            if (!result.IsSuccess)
+            {
+                _error = result.ErrorMessage;
+                _step = LoginStep.ChooseMethod;
+                return;
+            }
+
+            _totpSecret = result.Value!.Secret;
+            _step = LoginStep.TotpSetup;
+        }
+        else
+        {
+            _step = LoginStep.TotpCode;
+        }
+    }
+
+    private async Task ResendSmsAsync()
+    {
+        _isSubmitting = true;
+        _error = null;
+
+        var result = await AuthApiClient.SendTwoFactorSmsAsync(_challengeToken!);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+            _error = result.ErrorMessage;
+    }
+
+    private async Task SubmitCodeAsync(string method)
+    {
+        _isSubmitting = true;
+        _error = null;
+
+        var result = await AuthApiClient.VerifyTwoFactorAsync(_challengeToken!, method, _code);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        NavigateAfterLogin();
+    }
+
+    private async Task SubmitTotpSetupAsync()
+    {
+        _isSubmitting = true;
+        _error = null;
+
+        var result = await AuthApiClient.ConfirmTwoFactorTotpSetupAsync(_challengeToken!, _totpSecret!, _code);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _recoveryCodes = result.Value!;
+        _step = LoginStep.RecoveryCodes;
+    }
+
+    private void FinishAsync() => NavigateAfterLogin();
+
+    /// <summary>Notifying the auth state provider any earlier than this point resets
+    /// this component's local step state mid-flow - see AuthApiClient.VerifyTwoFactorAsync's
+    /// note for why.</summary>
+    private void NavigateAfterLogin()
+    {
+        AuthApiClient.NotifyAuthenticated();
         Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : Uri.UnescapeDataString(ReturnUrl));
     }
 
-    private sealed class LoginModel
+    private sealed class CredentialsModel
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;

@@ -53,6 +53,31 @@ body {
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03), 0 24px 48px -20px rgba(0, 0, 0, 0.6) !important;
 }
 
+/* ---- Login 2FA method choice cards ---- */
+.cl-method-choice {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    border: 1px solid rgba(16, 185, 129, 0.12);
+    transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
+
+.cl-method-choice:hover {
+    transform: translateY(-2px);
+    border-color: rgba(16, 185, 129, 0.55);
+    box-shadow: 0 0 24px -6px rgba(16, 185, 129, 0.5) !important;
+}
+
+.cl-method-choice .mud-icon-root {
+    color: #34D399;
+    font-size: 2rem;
+}
+
+.cl-auth-card code {
+    color: #34D399;
+    background: transparent;
+}
+
 /* ---- App bar: dark glass with a glowing bottom edge ---- */
 .cl-appbar.mud-appbar {
     background-color: rgba(13, 18, 32, 0.85) !important;
