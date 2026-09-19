@@ -77,6 +77,9 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery]
+    public string? FromCurrency { get; set; }
+
     private List<WalletSummaryResponse> _wallets = new();
     private bool _isLoadingWallets = true;
 
@@ -115,7 +118,8 @@ else
         _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
         if (_wallets.Count > 0)
         {
-            _sourceWalletId = _wallets[0].WalletId;
+            var preselected = _wallets.FirstOrDefault(w => w.Currency == FromCurrency);
+            _sourceWalletId = (preselected ?? _wallets[0]).WalletId;
             _targetCurrency = TargetCurrencies.FirstOrDefault();
         }
     }

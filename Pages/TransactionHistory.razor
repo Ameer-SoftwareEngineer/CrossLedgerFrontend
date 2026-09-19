@@ -35,9 +35,12 @@ else
         <MudItem xs="12" sm="4" md="3">
             <MudDatePicker Label="To" @bind-Date="_toDate" @bind-Date:after="OnFilterChangedAsync" Clearable="true" />
         </MudItem>
-        <MudItem xs="12" md="3" Class="d-flex align-center">
-            <MudButton Variant="Variant.Outlined" OnClick="ExportCsvAsync" Disabled="_isExporting || _lastPage.Count == 0">
-                @(_isExporting ? "Exporting..." : "Export CSV")
+        <MudItem xs="12" md="3" Class="d-flex align-center" Style="gap: 8px;">
+            <MudButton Variant="Variant.Outlined" OnClick="ExportCsvAsync" Disabled="_isExporting || _lastTotalCount == 0">
+                @(_isExporting ? "Exporting..." : "Download CSV")
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@ConvertHref">
+                Convert
             </MudButton>
         </MudItem>
     </MudGrid>
@@ -125,8 +128,18 @@ else
 
     private MudTable<TransactionHistoryEntryResponse> _table = null!;
     private List<TransactionHistoryEntryResponse> _lastPage = new();
+    private int _lastTotalCount;
     private bool _isExporting;
     private string? _error;
+
+    private string ConvertHref
+    {
+        get
+        {
+            var wallet = _wallets.FirstOrDefault(w => w.WalletId == _selectedWalletId);
+            return wallet is null ? "/send" : $"/send?fromCurrency={Uri.EscapeDataString(wallet.Currency)}";
+        }
+    }
 
     private readonly HashSet<Guid> _expandedTransferIds = new();
     private readonly HashSet<Guid> _loadingTransferIds = new();
@@ -161,8 +174,7 @@ else
 
         _error = null;
 
-        var fromDate = _fromDate is null ? (DateTimeOffset?)null : new DateTimeOffset(DateTime.SpecifyKind(_fromDate.Value, DateTimeKind.Utc));
-        var toDate = _toDate is null ? (DateTimeOffset?)null : new DateTimeOffset(DateTime.SpecifyKind(_toDate.Value.AddDays(1), DateTimeKind.Utc));
+        var (fromDate, toDate) = GetDateRange();
 
         var result = await WalletApiClient.GetTransactionsAsync(_selectedWalletId, state.Page + 1, state.PageSize, fromDate, toDate);
 
@@ -170,16 +182,25 @@ else
         {
             _error = result.ErrorMessage;
             _lastPage = new List<TransactionHistoryEntryResponse>();
+            _lastTotalCount = 0;
             StateHasChanged();
             return new TableData<TransactionHistoryEntryResponse> { Items = _lastPage, TotalItems = 0 };
         }
 
         _lastPage = result.Value!.Entries.ToList();
+        _lastTotalCount = result.Value.TotalCount;
         // MudTable invokes ServerData from its own render cycle, not ours - without this,
-        // the Export CSV button's Disabled binding (which reads _lastPage) never
+        // the Download CSV button's Disabled binding (which reads _lastTotalCount) never
         // re-evaluates after the first, empty-list render.
         StateHasChanged();
         return new TableData<TransactionHistoryEntryResponse> { Items = _lastPage, TotalItems = result.Value.TotalCount };
+    }
+
+    private (DateTimeOffset? From, DateTimeOffset? To) GetDateRange()
+    {
+        var fromDate = _fromDate is null ? (DateTimeOffset?)null : new DateTimeOffset(DateTime.SpecifyKind(_fromDate.Value, DateTimeKind.Utc));
+        var toDate = _toDate is null ? (DateTimeOffset?)null : new DateTimeOffset(DateTime.SpecifyKind(_toDate.Value.AddDays(1), DateTimeKind.Utc));
+        return (fromDate, toDate);
     }
 
     private static string FormatSignedAmount(TransactionHistoryEntryResponse entry) =>
@@ -208,13 +229,29 @@ else
         _ledgerEntriesCache[transferId] = result.IsSuccess ? result.Value!.ToList() : new List<LedgerEntryDetailResponse>();
     }
 
+    /// <summary>Exports every row matching the current filters, not just the page on
+    /// screen - fetches the full filtered set in one request now that _lastTotalCount is
+    /// known from the last server load, rather than the visible page's rows.</summary>
     private async Task ExportCsvAsync()
     {
+        if (_lastTotalCount == 0)
+            return;
+
         _isExporting = true;
+
+        var (fromDate, toDate) = GetDateRange();
+        var result = await WalletApiClient.GetTransactionsAsync(_selectedWalletId, 1, _lastTotalCount, fromDate, toDate);
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            _isExporting = false;
+            return;
+        }
 
         var csv = new System.Text.StringBuilder();
         csv.AppendLine("PostedAt,Direction,Amount,Currency,SignedAmount,TransferId");
-        foreach (var entry in _lastPage)
+        foreach (var entry in result.Value!.Entries)
         {
             csv.AppendLine($"{entry.PostedAt:O},{entry.Direction},{entry.Amount},{entry.Currency},{entry.SignedAmount},{entry.TransferId}");
         }
