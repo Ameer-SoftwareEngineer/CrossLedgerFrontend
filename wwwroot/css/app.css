@@ -206,6 +206,33 @@ body {
     color: #06110C !important;
 }
 
+.cl-sidebar-balances {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 8px 8px;
+}
+
+.cl-sidebar-balance-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.8125rem;
+}
+
+.cl-sidebar-balance-currency {
+    font-weight: 700;
+    color: #0F172A;
+    letter-spacing: .02em;
+}
+
+.cl-sidebar-balance-amount {
+    color: #64748B;
+    font-variant-numeric: tabular-nums;
+}
+
 /* ---- Cards: a soft shadow with a whisper of brand colour instead of a flat
    grey Material drop shadow ---- */
 .mud-paper.mud-elevation-1,

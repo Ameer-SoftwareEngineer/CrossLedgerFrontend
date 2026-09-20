@@ -1,6 +1,7 @@
 @page "/"
 @attribute [Authorize]
 @inject WalletApiClient WalletApiClient
+@inject WalletChangeNotifier WalletChangeNotifier
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
@@ -225,6 +226,7 @@ else
         Snackbar.Add($"{_newCurrency} wallet added.", Severity.Success);
         _showAddForm = false;
         await LoadAsync();
+        WalletChangeNotifier.NotifyChanged();
     }
 
     private static string AccentClass(int index) => $"cl-accent-{index % 4}";

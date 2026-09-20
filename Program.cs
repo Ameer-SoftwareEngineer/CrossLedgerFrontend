@@ -46,6 +46,7 @@ builder.Services.AddScoped<AuthApiClient>(sp => new AuthApiClient(
     sp.GetRequiredService<CrossLedgerAuthenticationStateProvider>()));
 
 builder.Services.AddScoped<WalletApiClient>();
+builder.Services.AddScoped<WalletChangeNotifier>();
 builder.Services.AddScoped<QuoteApiClient>();
 builder.Services.AddScoped<TransferApiClient>();
 builder.Services.AddScoped<TwoFactorApiClient>();

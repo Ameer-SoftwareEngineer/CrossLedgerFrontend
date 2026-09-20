@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject WalletApiClient WalletApiClient
+@inject WalletChangeNotifier WalletChangeNotifier
 @inject QuoteApiClient QuoteApiClient
 @inject TransferApiClient TransferApiClient
 @inject AuthenticationStateProvider AuthStateProvider
@@ -227,6 +228,7 @@ else
             Severity.Success);
         await ReloadWalletsAsync();
         ResetToQuoteForm();
+        WalletChangeNotifier.NotifyChanged();
     }
 
     /// <summary>The user might not hold the target currency yet - open a wallet for it on

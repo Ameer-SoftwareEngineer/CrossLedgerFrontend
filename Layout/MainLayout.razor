@@ -1,5 +1,9 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject AuthApiClient AuthApiClient
+@inject WalletApiClient WalletApiClient
+@inject WalletChangeNotifier WalletChangeNotifier
+@inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 
 <MudThemeProvider Theme="_theme" />
@@ -66,6 +70,21 @@
                         </Authorized>
                     </AuthorizeView>
                 </MudNavMenu>
+
+                @if (_sidebarWallets.Count > 0)
+                {
+                    <MudDivider Class="my-2 mx-2" />
+                    <MudText Typo="Typo.overline" Class="px-4 cl-nav-section">Balances</MudText>
+                    <div class="cl-sidebar-balances">
+                        @foreach (var wallet in _sidebarWallets)
+                        {
+                            <div class="cl-sidebar-balance-row">
+                                <span class="cl-sidebar-balance-currency">@wallet.Currency</span>
+                                <span class="cl-sidebar-balance-amount">@SupportedCurrencies.Format(wallet.Balance, wallet.Currency)</span>
+                            </div>
+                        }
+                    </div>
+                }
             </MudDrawer>
         </Authorized>
     </AuthorizeView>
@@ -79,6 +98,65 @@
 
 @code {
     private bool _drawerOpen = true;
+    private List<WalletSummaryResponse> _sidebarWallets = new();
+
+    protected override void OnInitialized()
+    {
+        AuthStateProvider.AuthenticationStateChanged += OnAuthenticationStateChanged;
+        Navigation.LocationChanged += OnLocationChanged;
+        WalletChangeNotifier.Changed += OnWalletChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+        {
+            await LoadSidebarWalletsAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async void OnAuthenticationStateChanged(Task<AuthenticationState> task)
+    {
+        var state = await task;
+        if (state.User.Identity?.IsAuthenticated == true)
+            await LoadSidebarWalletsAsync();
+        else
+            _sidebarWallets = new();
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>The drawer persists across SPA navigation (MainLayout isn't remounted),
+    /// so balances would otherwise go stale after a transfer or a new wallet - refresh
+    /// on every route change rather than building a cross-page notification channel for
+    /// what's just a sidebar convenience.</summary>
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated == true)
+        {
+            await LoadSidebarWalletsAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async void OnWalletChanged()
+    {
+        await LoadSidebarWalletsAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadSidebarWalletsAsync()
+    {
+        var result = await WalletApiClient.ListMineAsync();
+        if (result.IsSuccess)
+            _sidebarWallets = result.Value!.OrderBy(w => w.Currency).ToList();
+    }
 
     private readonly MudTheme _theme = new()
     {
@@ -119,4 +197,11 @@
 
     private static string GetInitial(string? email) =>
         string.IsNullOrWhiteSpace(email) ? "?" : email.Trim()[..1].ToUpperInvariant();
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthenticationStateChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
+        WalletChangeNotifier.Changed -= OnWalletChanged;
+    }
 }

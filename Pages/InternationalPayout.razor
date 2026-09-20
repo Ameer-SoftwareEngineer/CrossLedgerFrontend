@@ -1,6 +1,7 @@
 @page "/payout"
 @attribute [Authorize]
 @inject WalletApiClient WalletApiClient
+@inject WalletChangeNotifier WalletChangeNotifier
 @inject PayoutApiClient PayoutApiClient
 
 <PageTitle>International payout - CrossLedger</PageTitle>
@@ -177,6 +178,7 @@ else
         }
 
         _payout = result.Value;
+        WalletChangeNotifier.NotifyChanged();
         await LoadRoutingDecisionAsync(_payout!.PayoutId);
     }
 
