@@ -1,0 +1,371 @@
+@page "/otc-desk"
+@attribute [Authorize]
+@implements IDisposable
+@inject WalletApiClient WalletApiClient
+@inject WalletChangeNotifier WalletChangeNotifier
+@inject OtcApiClient OtcApiClient
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>OTC Desk - CrossLedger</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">OTC Desk</MudText>
+<MudText Typo="Typo.body2" Class="mb-4">
+    For trades of @SupportedCurrencies.Format(CreateOtcRequestMinimumAmount, "USD")+ - request a rate, the desk holds it open
+    for @OfferValidityMinutes minutes, and you accept or let it expire. Smaller amounts convert instantly from
+    <MudLink Href="/send">Send money</MudLink> instead.
+</MudText>
+
+@if (_isLoadingWallets)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_wallets.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">
+        You need at least one wallet before you can request a desk rate. Add one from the <MudLink Href="/">Wallets</MudLink> page.
+    </MudAlert>
+}
+else if (_offer is null)
+{
+    <MudPaper Class="pa-6" Style="max-width: 480px;" Elevation="2">
+        <MudSelect T="Guid" @bind-Value="_sourceWalletId" Label="From wallet" @bind-Value:after="OnSourceWalletChanged">
+            @foreach (var wallet in _wallets)
+            {
+                <MudSelectItem T="Guid" Value="@wallet.WalletId">@wallet.Currency (@SupportedCurrencies.Format(wallet.Balance, wallet.Currency) available)</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="string" @bind-Value="_targetCurrency" Label="To currency" Class="mt-4">
+            @foreach (var currency in TargetCurrencies)
+            {
+                <MudSelectItem T="string" Value="@currency">@currency</MudSelectItem>
+            }
+        </MudSelect>
+        <MudNumericField T="decimal" @bind-Value="_amount" Label="Amount" Min="CreateOtcRequestMinimumAmount" Class="mt-4"
+                          HelperText="@($"Minimum {SupportedCurrencies.Format(CreateOtcRequestMinimumAmount, "USD")}")" />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                   OnClick="RequestRateAsync" Disabled="_isRequesting || _targetCurrency is null">
+            @(_isRequesting ? "Requesting..." : "Request rate")
+        </MudButton>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Class="pa-6" Style="max-width: 480px;" Elevation="2">
+        <MudText Typo="Typo.body1">@_amount.ToString("N2") @_offer.FromCurrency &rarr; @_offer.ToCurrency</MudText>
+        <MudText Typo="Typo.body2" Class="mt-1">Desk rate: @_offer.DeskRate.ToString("N4")</MudText>
+        <MudText Typo="Typo.h4" Class="mt-2">@SupportedCurrencies.Format(TargetAmountPreview, _offer.ToCurrency) @_offer.ToCurrency</MudText>
+
+        <MudProgressLinear Color="@(SecondsRemaining <= 30 ? Color.Error : Color.Primary)" Value="@CountdownPercent" Class="mt-6" />
+        <MudText Typo="Typo.body2" Class="mt-2">
+            @(SecondsRemaining > 0 ? $"Offer expires in {SecondsRemaining / 60}m {SecondsRemaining % 60}s" : "Offer expired - request a new one.")
+        </MudText>
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+
+        <MudStack Row="true" Class="mt-6" Spacing="2">
+            <MudButton Variant="Variant.Outlined" OnClick="RejectAsync" Disabled="_isRejecting || _isAccepting">
+                @(_isRejecting ? "Declining..." : "Decline")
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AcceptAsync" Disabled="_isAccepting || _isRejecting || SecondsRemaining <= 0">
+                @(_isAccepting ? "Accepting..." : "Accept offer")
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+<MudText Typo="Typo.h6" Class="mt-8 mb-4">Request history</MudText>
+
+@if (_isLoadingHistory)
+{
+    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+}
+else if (_history.Count == 0)
+{
+    <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No OTC requests yet.</MudText>
+}
+else
+{
+    <MudSimpleTable Dense="true" Elevation="0">
+        <thead>
+            <tr>
+                <th>Requested</th>
+                <th>Pair</th>
+                <th style="text-align: right;">Amount</th>
+                <th style="text-align: right;">Desk rate</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var entry in _history)
+            {
+                <tr>
+                    <td>@entry.RequestedAt.ToLocalTime().ToString("g")</td>
+                    <td>@entry.FromCurrency &rarr; @entry.ToCurrency</td>
+                    <td style="text-align: right;">@SupportedCurrencies.Format(entry.RequestedAmount, entry.FromCurrency)</td>
+                    <td style="text-align: right;">@entry.DeskRate.ToString("N4")</td>
+                    <td>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(entry.Status)">@entry.Status</MudChip>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </MudSimpleTable>
+}
+
+@code {
+    private const decimal CreateOtcRequestMinimumAmount = 10_000m;
+    private const int OfferValidityMinutes = 5;
+
+    private List<WalletSummaryResponse> _wallets = new();
+    private bool _isLoadingWallets = true;
+
+    private Guid _sourceWalletId;
+    private string? _targetCurrency;
+    private decimal _amount = CreateOtcRequestMinimumAmount;
+
+    private OtcRequestResponse? _offer;
+    private string _idempotencyKey = Guid.NewGuid().ToString();
+    private System.Threading.Timer? _countdownTimer;
+    private int SecondsRemaining;
+
+    private bool _isRequesting;
+    private bool _isAccepting;
+    private bool _isRejecting;
+    private string? _error;
+
+    private List<OtcRequestResponse> _history = new();
+    private bool _isLoadingHistory = true;
+
+    private string SourceCurrency => _wallets.FirstOrDefault(w => w.WalletId == _sourceWalletId)?.Currency ?? string.Empty;
+
+    private IEnumerable<string> TargetCurrencies => SupportedCurrencies.All.Where(c => c != SourceCurrency);
+
+    private decimal TargetAmountPreview => _offer is null ? 0 : Math.Round(_amount * _offer.DeskRate, 2);
+
+    private double CountdownPercent => Math.Clamp(SecondsRemaining / (OfferValidityMinutes * 60.0) * 100.0, 0, 100);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await WalletApiClient.ListMineAsync();
+        _isLoadingWallets = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+        }
+        else
+        {
+            _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
+            if (_wallets.Count > 0)
+            {
+                _sourceWalletId = _wallets[0].WalletId;
+                _targetCurrency = TargetCurrencies.FirstOrDefault();
+            }
+        }
+
+        await LoadHistoryAsync();
+    }
+
+    private void OnSourceWalletChanged()
+    {
+        if (_targetCurrency == SourceCurrency)
+            _targetCurrency = TargetCurrencies.FirstOrDefault();
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        _isLoadingHistory = true;
+        var result = await OtcApiClient.ListMineAsync();
+        _isLoadingHistory = false;
+
+        if (result.IsSuccess)
+            _history = result.Value!.ToList();
+    }
+
+    private async Task RequestRateAsync()
+    {
+        if (_targetCurrency is null)
+            return;
+
+        _isRequesting = true;
+        _error = null;
+
+        var result = await OtcApiClient.CreateAsync(_sourceWalletId, SourceCurrency, _targetCurrency, _amount);
+
+        _isRequesting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _offer = result.Value;
+        _idempotencyKey = Guid.NewGuid().ToString();
+        StartCountdown();
+    }
+
+    private void StartCountdown()
+    {
+        _countdownTimer?.Dispose();
+        UpdateSecondsRemaining();
+        _countdownTimer = new System.Threading.Timer(_ =>
+        {
+            UpdateSecondsRemaining();
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+    }
+
+    private void UpdateSecondsRemaining()
+    {
+        if (_offer is null)
+        {
+            SecondsRemaining = 0;
+            return;
+        }
+
+        var remaining = _offer.OfferExpiresAt - DateTimeOffset.UtcNow;
+        SecondsRemaining = Math.Max(0, (int)Math.Ceiling(remaining.TotalSeconds));
+    }
+
+    private async Task AcceptAsync()
+    {
+        if (_offer is null)
+            return;
+
+        _isAccepting = true;
+        _error = null;
+
+        var targetWalletId = await ResolveTargetWalletIdAsync();
+        if (targetWalletId is null)
+        {
+            _isAccepting = false;
+            return;
+        }
+
+        var result = await OtcApiClient.AcceptAsync(_offer.OtcRequestId, targetWalletId.Value, _offer.RequestedAmount, _idempotencyKey);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync();
+            if (token is null)
+            {
+                _isAccepting = false;
+                _error = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await OtcApiClient.AcceptAsync(_offer.OtcRequestId, targetWalletId.Value, _offer.RequestedAmount, _idempotencyKey, token);
+        }
+
+        _isAccepting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _countdownTimer?.Dispose();
+        Snackbar.Add(
+            $"Accepted: {SupportedCurrencies.Format(result.Value!.SourceAmount, result.Value.SourceCurrency)} {result.Value.SourceCurrency} " +
+            $"-> {SupportedCurrencies.Format(result.Value.TargetAmount, result.Value.TargetCurrency)} {result.Value.TargetCurrency}.",
+            Severity.Success);
+        await ReloadWalletsAsync();
+        await LoadHistoryAsync();
+        WalletChangeNotifier.NotifyChanged();
+        ResetToRequestForm();
+    }
+
+    private async Task RejectAsync()
+    {
+        if (_offer is null)
+            return;
+
+        _isRejecting = true;
+        _error = null;
+
+        var result = await OtcApiClient.RejectAsync(_offer.OtcRequestId);
+
+        _isRejecting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _countdownTimer?.Dispose();
+        await LoadHistoryAsync();
+        ResetToRequestForm();
+    }
+
+    private async Task<Guid?> ResolveTargetWalletIdAsync()
+    {
+        var existing = _wallets.FirstOrDefault(w => w.Currency == _offer!.ToCurrency);
+        if (existing is not null)
+            return existing.WalletId;
+
+        var ownerId = await GetOwnerIdAsync();
+        var created = await WalletApiClient.CreateAsync(ownerId, _offer!.ToCurrency);
+        if (!created.IsSuccess)
+        {
+            _error = created.ErrorMessage;
+            return null;
+        }
+
+        await ReloadWalletsAsync();
+        return created.Value!.WalletId;
+    }
+
+    private async Task<string?> RequestStepUpTokenAsync()
+    {
+        var parameters = new DialogParameters<StepUpDialog> { { x => x.Operation, "HighValueTransfer" } };
+        var dialog = await DialogService.ShowAsync<StepUpDialog>("Verify it's you", parameters);
+        var result = await dialog.Result;
+
+        return result is { Canceled: false } ? result.Data as string : null;
+    }
+
+    private async Task<Guid> GetOwnerIdAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        return Guid.Parse(authState.User.FindFirst("sub")!.Value);
+    }
+
+    private async Task ReloadWalletsAsync()
+    {
+        var result = await WalletApiClient.ListMineAsync();
+        if (result.IsSuccess)
+            _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
+    }
+
+    private void ResetToRequestForm()
+    {
+        _countdownTimer?.Dispose();
+        _countdownTimer = null;
+        _offer = null;
+        _error = null;
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Accepted" => Color.Success,
+        "Rejected" => Color.Default,
+        "Expired" => Color.Warning,
+        _ => Color.Info,
+    };
+
+    public void Dispose() => _countdownTimer?.Dispose();
+}
