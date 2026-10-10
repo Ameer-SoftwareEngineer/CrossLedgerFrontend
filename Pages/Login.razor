@@ -42,7 +42,10 @@
     }
     else if (_step == LoginStep.ChooseMethod)
     {
-        <MudText Typo="Typo.h5" GutterBottom="true">Verify it's you</MudText>
+        <div class="d-flex align-center mb-2">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Edge="Edge.Start" OnClick="@(() => GoBackTo(LoginStep.Credentials))" Class="mr-1" />
+            <MudText Typo="Typo.h5">Verify it's you</MudText>
+        </div>
         <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
             @(_requiresSetup ? "Choose how you'd like to verify your sign-ins from now on." : "Choose a verification method.")
         </MudText>
@@ -103,13 +106,16 @@
                    OnClick="SubmitTotpSetupAsync" Disabled="_isSubmitting">
             @(_isSubmitting ? "Verifying..." : "Verify and finish setup")
         </MudButton>
-        <MudButton Variant="Variant.Text" FullWidth="true" Class="mt-2" OnClick="@(() => _step = LoginStep.ChooseMethod)">
+        <MudButton Variant="Variant.Text" FullWidth="true" Class="mt-2" OnClick="@(() => GoBackTo(LoginStep.ChooseMethod))">
             Choose a different method
         </MudButton>
     }
     else if (_step == LoginStep.TotpCode)
     {
-        <MudText Typo="Typo.h5" GutterBottom="true">Enter your code</MudText>
+        <div class="d-flex align-center mb-2">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Edge="Edge.Start" OnClick="@(() => GoBackTo(LoginStep.ChooseMethod))" Class="mr-1" />
+            <MudText Typo="Typo.h5">Enter your code</MudText>
+        </div>
         <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">Open your authenticator app and enter the current code.</MudText>
 
         <MudTextField @bind-Value="_code" Label="6-digit code" MaxLength="6" Immediate="true" AutoFocus="true" />
@@ -126,7 +132,10 @@
     }
     else if (_step == LoginStep.SmsCode)
     {
-        <MudText Typo="Typo.h5" GutterBottom="true">Enter your code</MudText>
+        <div class="d-flex align-center mb-2">
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Edge="Edge.Start" OnClick="@(() => GoBackTo(LoginStep.ChooseMethod))" Class="mr-1" />
+            <MudText Typo="Typo.h5">Enter your code</MudText>
+        </div>
         <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
             We sent a code to @(_maskedPhoneNumber ?? "your phone on file").
         </MudText>
@@ -277,6 +286,13 @@
         {
             _step = LoginStep.TotpCode;
         }
+    }
+
+    private void GoBackTo(LoginStep step)
+    {
+        _error = null;
+        _code = string.Empty;
+        _step = step;
     }
 
     private async Task ResendSmsAsync()

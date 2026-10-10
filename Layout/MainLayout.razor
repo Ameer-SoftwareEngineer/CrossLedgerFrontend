@@ -56,11 +56,11 @@
         <Authorized>
             <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="DrawerVariant.Persistent" ClipMode="DrawerClipMode.Always" Class="cl-drawer">
                 <MudNavMenu Class="pa-2">
-                    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.AccountBalanceWallet">Wallets</MudNavLink>
+                    <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.ReceiptLong">Transactions</MudNavLink>
+                    <MudNavLink Href="/wallets" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.AccountBalanceWallet">Wallets</MudNavLink>
                     <MudNavLink Href="/send" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.SwapHorizontalCircle">Send money</MudNavLink>
                     <MudNavLink Href="/payout" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Public">International payout</MudNavLink>
                     <MudNavLink Href="/otc-desk" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.CurrencyExchange">OTC Desk</MudNavLink>
-                    <MudNavLink Href="/transactions" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.ReceiptLong">Transactions</MudNavLink>
                     <MudNavLink Href="/fx-rates" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.TrendingUp">FX rates</MudNavLink>
                     <MudNavLink Href="/security" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Security">Security</MudNavLink>
                     <AuthorizeView Roles="Admin" Context="adminContext">

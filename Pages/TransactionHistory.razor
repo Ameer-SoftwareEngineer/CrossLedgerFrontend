@@ -1,3 +1,4 @@
+@page "/"
 @page "/transactions"
 @attribute [Authorize]
 @inject WalletApiClient WalletApiClient
@@ -15,7 +16,7 @@
 else if (_wallets.Count == 0)
 {
     <MudAlert Severity="Severity.Info">
-        You don't have any wallets yet. Add one from the <MudLink Href="/">Wallets</MudLink> page.
+        You don't have any wallets yet. Add one from the <MudLink Href="/wallets">Wallets</MudLink> page.
     </MudAlert>
 }
 else

@@ -1,4 +1,4 @@
-@page "/"
+@page "/wallets"
 @attribute [Authorize]
 @inject WalletApiClient WalletApiClient
 @inject WalletChangeNotifier WalletChangeNotifier
@@ -38,7 +38,7 @@ else
             <MudPaper Class="pa-5 cl-activity-card" Elevation="0">
                 <div class="d-flex align-center justify-space-between mb-2">
                     <MudText Typo="Typo.subtitle1" Class="cl-activity-title">Recent transactions</MudText>
-                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" Href="/transactions">View all</MudButton>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" Href="/">View all</MudButton>
                 </div>
 
                 @if (_isActivityLoading)
