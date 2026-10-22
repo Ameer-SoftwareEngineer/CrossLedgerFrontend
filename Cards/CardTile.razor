@@ -1,0 +1,273 @@
+@inject CardApiClient CardApiClient
+@inject WalletChangeNotifier WalletChangeNotifier
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<MudPaper Class="pa-4 cl-wallet-card" Elevation="0">
+    <div class="d-flex justify-space-between align-start">
+        <div>
+            @if (_revealed is not null)
+            {
+                <MudText Typo="Typo.subtitle1" Style="font-family: monospace;">@FormatPan(_revealed.Pan)</MudText>
+                <MudText Typo="Typo.caption" Class="cl-dash-subtitle">CVV @_revealed.Cvv · exp @_revealed.ExpiryMonth.ToString("00")/@_revealed.ExpiryYear</MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.subtitle1" Style="font-family: monospace;">•••• •••• •••• @Card.Last4</MudText>
+                <MudText Typo="Typo.caption" Class="cl-dash-subtitle">exp @Card.ExpiryMonth.ToString("00")/@Card.ExpiryYear</MudText>
+            }
+            <MudText Typo="Typo.body2" Class="mt-1">@Card.CardholderName · @Card.Currency</MudText>
+        </div>
+        <MudChip T="string" Size="Size.Small" Color="@StatusColor(Card.Status)">@Card.Status</MudChip>
+    </div>
+
+    <MudText Typo="Typo.caption" Class="mt-2 cl-dash-subtitle d-block">
+        @(Card.SpendingLimit is null ? "No per-purchase limit set" : $"Limit: {SupportedCurrencies.Format(Card.SpendingLimit.Value, Card.Currency)} {Card.Currency} per purchase")
+    </MudText>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mt-2" Dense="true">@_error</MudAlert>
+    }
+
+    <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1" Class="mt-3">
+        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="ToggleRevealAsync" Disabled="@(IsClosed || _isBusy)">
+            @(_revealed is null ? "Reveal" : "Hide")
+        </MudButton>
+        @if (Card.Status == "Active")
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="FreezeAsync" Disabled="_isBusy">Freeze</MudButton>
+        }
+        else if (Card.Status == "Frozen")
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="UnfreezeAsync" Disabled="_isBusy">Unfreeze</MudButton>
+        }
+        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _showLimitForm = !_showLimitForm)" Disabled="@(IsClosed || _isBusy)">
+            Set limit
+        </MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Text" OnClick="@(() => _showPurchaseForm = !_showPurchaseForm)" Disabled="@(IsClosed || _isBusy)">
+            Simulate purchase
+        </MudButton>
+        @if (!IsClosed)
+        {
+            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error" OnClick="CloseAsync" Disabled="_isBusy">Close</MudButton>
+        }
+    </MudStack>
+
+    @if (_showLimitForm)
+    {
+        <MudStack Row="true" Class="mt-3" Spacing="2" AlignItems="AlignItems.Center">
+            <MudNumericField T="decimal?" @bind-Value="_limitInput" Label="Max per purchase" Clearable="true" Style="max-width: 200px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="SaveLimitAsync" Disabled="_isBusy">Save</MudButton>
+        </MudStack>
+    }
+
+    @if (_showPurchaseForm)
+    {
+        <MudStack Row="true" Class="mt-3" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_merchantInput" Label="Merchant" Style="max-width: 200px;" />
+            <MudNumericField T="decimal" @bind-Value="_amountInput" Label="Amount" Min="0.01m" Style="max-width: 160px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="SimulatePurchaseAsync" Disabled="_isBusy">
+                Simulate
+            </MudButton>
+        </MudStack>
+    }
+
+    @if (_purchases.Count > 0)
+    {
+        <MudText Typo="Typo.caption" Class="mt-3 mb-1 cl-dash-subtitle d-block">Recent purchases on this card</MudText>
+        @foreach (var purchase in _purchases.Take(5))
+        {
+            <div class="d-flex justify-space-between">
+                <MudText Typo="Typo.body2">@purchase.MerchantName</MudText>
+                <MudText Typo="Typo.body2">-@SupportedCurrencies.Format(purchase.Amount, purchase.Currency)</MudText>
+            </div>
+        }
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public CardResponse Card { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    private bool IsClosed => Card.Status == "Closed";
+
+    private bool _isBusy;
+    private string? _error;
+
+    private RevealCardDetailsResponse? _revealed;
+
+    private bool _showLimitForm;
+    private decimal? _limitInput;
+
+    private bool _showPurchaseForm;
+    private string _merchantInput = string.Empty;
+    private decimal _amountInput = 10m;
+
+    private List<CardPurchaseResponse> _purchases = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _limitInput = Card.SpendingLimit;
+        await LoadPurchasesAsync();
+    }
+
+    private async Task LoadPurchasesAsync()
+    {
+        var result = await CardApiClient.ListPurchasesAsync(Card.CardId);
+        if (result.IsSuccess)
+            _purchases = result.Value!.OrderByDescending(p => p.PostedAt).ToList();
+    }
+
+    private static string FormatPan(string pan)
+    {
+        var groups = new List<string>();
+        for (var i = 0; i < pan.Length; i += 4)
+            groups.Add(pan.Substring(i, Math.Min(4, pan.Length - i)));
+        return string.Join(' ', groups);
+    }
+
+    private async Task ToggleRevealAsync()
+    {
+        if (_revealed is not null)
+        {
+            _revealed = null;
+            return;
+        }
+
+        _isBusy = true;
+        _error = null;
+
+        var result = await CardApiClient.RevealAsync(Card.CardId);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync("RevealCardDetails");
+            if (token is null)
+            {
+                _isBusy = false;
+                _error = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await CardApiClient.RevealAsync(Card.CardId, token);
+        }
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _revealed = result.Value;
+    }
+
+    private async Task FreezeAsync() => await RunActionAsync(() => CardApiClient.FreezeAsync(Card.CardId));
+
+    private async Task UnfreezeAsync() => await RunActionAsync(() => CardApiClient.UnfreezeAsync(Card.CardId));
+
+    private async Task CloseAsync() => await RunActionAsync(() => CardApiClient.CloseAsync(Card.CardId));
+
+    private async Task SaveLimitAsync()
+    {
+        _isBusy = true;
+        _error = null;
+
+        var result = await CardApiClient.SetSpendingLimitAsync(Card.CardId, _limitInput);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync("ChangeSpendingLimits");
+            if (token is null)
+            {
+                _isBusy = false;
+                _error = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await CardApiClient.SetSpendingLimitAsync(Card.CardId, _limitInput, token);
+        }
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _showLimitForm = false;
+        Snackbar.Add("Spending limit updated.", Severity.Success);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task SimulatePurchaseAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_merchantInput))
+        {
+            _error = "Enter a merchant name.";
+            return;
+        }
+
+        _isBusy = true;
+        _error = null;
+
+        var idempotencyKey = Guid.NewGuid().ToString();
+        var result = await CardApiClient.SimulatePurchaseAsync(Card.CardId, _merchantInput, _amountInput, idempotencyKey);
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        Snackbar.Add($"Simulated: {_merchantInput} -{SupportedCurrencies.Format(_amountInput, Card.Currency)} {Card.Currency}.", Severity.Success);
+        _showPurchaseForm = false;
+        _merchantInput = string.Empty;
+        await LoadPurchasesAsync();
+        await OnChanged.InvokeAsync();
+        WalletChangeNotifier.NotifyChanged();
+    }
+
+    private async Task RunActionAsync(Func<Task<ApiResult>> action)
+    {
+        _isBusy = true;
+        _error = null;
+
+        var result = await action();
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task<string?> RequestStepUpTokenAsync(string operation)
+    {
+        var parameters = new DialogParameters<StepUpDialog> { { x => x.Operation, operation } };
+        var dialog = await DialogService.ShowAsync<StepUpDialog>("Verify it's you", parameters);
+        var result = await dialog.Result;
+
+        return result is { Canceled: false } ? result.Data as string : null;
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Active" => Color.Success,
+        "Frozen" => Color.Info,
+        "Closed" => Color.Default,
+        _ => Color.Default,
+    };
+}
