@@ -1,0 +1,427 @@
+@page "/cards/{CardId:guid}"
+@attribute [Authorize]
+@inject CardApiClient CardApiClient
+@inject WalletApiClient WalletApiClient
+@inject WalletChangeNotifier WalletChangeNotifier
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Card details - CrossLedger</PageTitle>
+
+@if (_isLoading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_card is null)
+{
+    <MudAlert Severity="Severity.Error">Could not load this card. <MudLink Href="/cards">Back to cards</MudLink></MudAlert>
+}
+else
+{
+    <div class="d-flex align-center mb-1">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Href="/cards" Class="mr-1" />
+        <MudText Typo="Typo.h4">@_card.CardholderName</MudText>
+        <MudChip T="string" Size="Size.Small" Color="@StatusColor(_card.Status)" Class="ml-3">@_card.Status</MudChip>
+    </div>
+    <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+        @(_card.CardType == "Virtual" ? "Virtual card" : "Physical card") · XXXX XXXX XXXX @_card.Last4 ·
+        Balance @SupportedCurrencies.Format(_card.Balance, _card.Currency) @_card.Currency
+    </MudText>
+
+    @if (_error is not null)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
+    }
+
+    <MudTabs Color="Color.Primary" Class="cl-card-tabs">
+        <MudTabPanel Text="Card Transaction History">
+            <div class="pa-4">
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="4" md="3">
+                        <MudDatePicker Label="From" @bind-Date="_fromDate" @bind-Date:after="OnFilterChangedAsync" Clearable="true" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4" md="3">
+                        <MudDatePicker Label="To" @bind-Date="_toDate" @bind-Date:after="OnFilterChangedAsync" Clearable="true" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudTable @ref="_table" ServerData="LoadTransactionsAsync" Hover="true" Dense="true">
+                    <HeaderContent>
+                        <MudTh>No.</MudTh>
+                        <MudTh>Posted</MudTh>
+                        <MudTh>Order Type</MudTh>
+                        <MudTh Style="text-align: right;">Amount</MudTh>
+                        <MudTh Style="text-align: right;">Balance</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="No.">@RowNumber(context)</MudTd>
+                        <MudTd DataLabel="Posted">@context.PostedAt.ToLocalTime().ToString("g")</MudTd>
+                        <MudTd DataLabel="Order Type">
+                            <MudChip T="string" Color="@(context.Direction == "Credit" ? Color.Success : Color.Default)" Size="Size.Small">
+                                @(context.Direction == "Credit" ? "Top Up" : "Purchase")
+                            </MudChip>
+                        </MudTd>
+                        <MudTd DataLabel="Amount" Style="text-align: right;">
+                            @(context.SignedAmount >= 0 ? "+" : string.Empty)@SupportedCurrencies.Format(context.SignedAmount, context.Currency) @context.Currency
+                        </MudTd>
+                        <MudTd Style="text-align: right;">@SupportedCurrencies.Format(_runningBalance(context), context.Currency)</MudTd>
+                    </RowTemplate>
+                    <NoRecordsContent>
+                        <MudText>No transactions on this card yet.</MudText>
+                    </NoRecordsContent>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+                    </PagerContent>
+                </MudTable>
+            </div>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Top Up">
+            <div class="pa-4" style="max-width: 420px;">
+                @if (_wallets.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="cl-dash-subtitle">You don't have any wallets to top up from yet.</MudText>
+                }
+                else
+                {
+                    <MudSelect T="Guid" @bind-Value="_topUpSourceWalletId" Label="Select Transfer Type">
+                        @foreach (var wallet in _wallets)
+                        {
+                            <MudSelectItem T="Guid" Value="@wallet.WalletId">@wallet.Currency (@SupportedCurrencies.Format(wallet.Balance, wallet.Currency) available)</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudNumericField T="decimal" @bind-Value="_topUpAmount" Label="Top Up Amount" Min="0.01m" Class="mt-4" />
+
+                    @if (_topUpError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mt-4">@_topUpError</MudAlert>
+                    }
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                               OnClick="TopUpAsync" Disabled="_isToppingUp">
+                        @(_isToppingUp ? "Processing..." : "Review Order")
+                    </MudButton>
+                }
+            </div>
+        </MudTabPanel>
+
+        <MudTabPanel Text="View Details">
+            <div class="pa-4 d-flex flex-column align-center">
+                <div class="cl-card-visual">
+                    <div class="cl-card-visual-chip"></div>
+                    <div class="cl-card-visual-number">@(_revealed is null ? $"**** **** **** {_card.Last4}" : FormatPan(_revealed.Pan))</div>
+                    <div class="cl-card-visual-footer">
+                        <div>
+                            <div style="font-size: 0.65rem; opacity: .8;">CARDHOLDER</div>
+                            <div style="font-weight: 700; letter-spacing: .03em;">@_card.CardholderName.ToUpperInvariant()</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.65rem; opacity: .8;">valid thru</div>
+                            <div>@_card.ExpiryMonth.ToString("00")/@(_card.ExpiryYear % 100)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <MudStack Style="max-width: 340px; width: 100%;" Class="mt-4" Spacing="2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="ToggleRevealAsync" Disabled="@(_card.Status == "Closed" || _isBusy)">
+                        @(_revealed is null ? "Show card number" : "Hide card number")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" OnClick="@(() => _showCvc = !_showCvc)" Disabled="@(_revealed is null)">
+                        @(_showCvc && _revealed is not null ? $"CVC: {_revealed.Cvv}" : "Show CVC")
+                    </MudButton>
+                </MudStack>
+
+                <MudDivider Class="my-6" Style="width: 100%; max-width: 340px;" />
+
+                <MudStack Style="max-width: 340px; width: 100%;" Spacing="2">
+                    @if (_card.Status == "Active")
+                    {
+                        <MudButton Variant="Variant.Outlined" FullWidth="true" OnClick="FreezeAsync" Disabled="_isBusy">Freeze card</MudButton>
+                    }
+                    else if (_card.Status == "Frozen")
+                    {
+                        <MudButton Variant="Variant.Outlined" FullWidth="true" OnClick="UnfreezeAsync" Disabled="_isBusy">Unfreeze card</MudButton>
+                    }
+
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <MudNumericField T="decimal?" @bind-Value="_limitInput" Label="Max per purchase" Clearable="true" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveLimitAsync" Disabled="@(_card.Status == "Closed" || _isBusy)">Save</MudButton>
+                    </MudStack>
+
+                    @if (_card.Status != "Closed")
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" FullWidth="true" OnClick="CloseAsync" Disabled="_isBusy">Close card</MudButton>
+                    }
+                </MudStack>
+            </div>
+        </MudTabPanel>
+    </MudTabs>
+}
+
+@code {
+    [Parameter]
+    public Guid CardId { get; set; }
+
+    private CardResponse? _card;
+    private bool _isLoading = true;
+    private string? _error;
+    private bool _isBusy;
+
+    private List<WalletSummaryResponse> _wallets = new();
+
+    // Transaction History tab
+    private MudTable<TransactionHistoryEntryResponse> _table = null!;
+    private DateTime? _fromDate;
+    private DateTime? _toDate;
+    private List<TransactionHistoryEntryResponse> _lastPage = new();
+    private int _pageOffset;
+    private readonly Dictionary<Guid, decimal> _balanceAfter = new();
+
+    // Top Up tab
+    private Guid _topUpSourceWalletId;
+    private decimal _topUpAmount = 10m;
+    private bool _isToppingUp;
+    private string? _topUpError;
+
+    // View Details tab
+    private RevealCardDetailsResponse? _revealed;
+    private bool _showCvc;
+    private decimal? _limitInput;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCardAsync();
+
+        var walletsResult = await WalletApiClient.ListMineAsync();
+        if (walletsResult.IsSuccess)
+        {
+            _wallets = walletsResult.Value!.Where(w => _card is not null && w.Currency == _card.Currency).OrderBy(w => w.Currency).ToList();
+            if (_wallets.Count > 0)
+                _topUpSourceWalletId = _wallets[0].WalletId;
+        }
+    }
+
+    private async Task LoadCardAsync()
+    {
+        _isLoading = true;
+        var result = await CardApiClient.ListMineAsync();
+        _isLoading = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _card = result.Value!.FirstOrDefault(c => c.CardId == CardId);
+        if (_card is not null)
+            _limitInput = _card.SpendingLimit;
+    }
+
+    private async Task OnFilterChangedAsync()
+    {
+        if (_table is not null)
+            await _table.ReloadServerData();
+    }
+
+    private async Task<TableData<TransactionHistoryEntryResponse>> LoadTransactionsAsync(TableState state, CancellationToken cancellationToken)
+    {
+        if (_card is null)
+            return new TableData<TransactionHistoryEntryResponse> { Items = Array.Empty<TransactionHistoryEntryResponse>(), TotalItems = 0 };
+
+        var fromDate = _fromDate is null ? (DateTimeOffset?)null : new DateTimeOffset(DateTime.SpecifyKind(_fromDate.Value, DateTimeKind.Utc));
+        var toDate = _toDate is null ? (DateTimeOffset?)null : new DateTimeOffset(DateTime.SpecifyKind(_toDate.Value.AddDays(1), DateTimeKind.Utc));
+
+        var result = await WalletApiClient.GetTransactionsAsync(_card.CardWalletId, state.Page + 1, state.PageSize, fromDate, toDate);
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return new TableData<TransactionHistoryEntryResponse> { Items = Array.Empty<TransactionHistoryEntryResponse>(), TotalItems = 0 };
+        }
+
+        _lastPage = result.Value!.Entries.ToList();
+        _pageOffset = state.Page * state.PageSize;
+
+        // Oldest-to-newest running balance, matching how the card's own balance accrued.
+        var ordered = _lastPage.OrderBy(e => e.PostedAt).ToList();
+        var running = _card.Balance;
+        for (var i = _lastPage.Count - 1; i >= 0; i--)
+        {
+            running -= ordered[i].SignedAmount;
+        }
+        foreach (var entry in ordered)
+        {
+            running += entry.SignedAmount;
+            _balanceAfter[entry.Id] = running;
+        }
+
+        return new TableData<TransactionHistoryEntryResponse> { Items = _lastPage, TotalItems = result.Value.TotalCount };
+    }
+
+    private decimal _runningBalance(TransactionHistoryEntryResponse entry) =>
+        _balanceAfter.TryGetValue(entry.Id, out var balance) ? balance : 0m;
+
+    private int RowNumber(TransactionHistoryEntryResponse entry) =>
+        _pageOffset + _lastPage.FindIndex(e => e.Id == entry.Id) + 1;
+
+    private static string FormatPan(string pan)
+    {
+        var groups = new List<string>();
+        for (var i = 0; i < pan.Length; i += 4)
+            groups.Add(pan.Substring(i, Math.Min(4, pan.Length - i)));
+        return string.Join(' ', groups);
+    }
+
+    private async Task TopUpAsync()
+    {
+        if (_card is null)
+            return;
+
+        _isToppingUp = true;
+        _topUpError = null;
+
+        var idempotencyKey = Guid.NewGuid().ToString();
+        var result = await CardApiClient.TopUpAsync(_card.CardId, _topUpSourceWalletId, _topUpAmount, idempotencyKey);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync("HighValueTransfer");
+            if (token is null)
+            {
+                _isToppingUp = false;
+                _topUpError = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await CardApiClient.TopUpAsync(_card.CardId, _topUpSourceWalletId, _topUpAmount, idempotencyKey, token);
+        }
+
+        _isToppingUp = false;
+
+        if (!result.IsSuccess)
+        {
+            _topUpError = result.ErrorMessage;
+            return;
+        }
+
+        Snackbar.Add($"Topped up {SupportedCurrencies.Format(_topUpAmount, _card.Currency)} {_card.Currency}.", Severity.Success);
+        await LoadCardAsync();
+        await OnFilterChangedAsync();
+        WalletChangeNotifier.NotifyChanged();
+    }
+
+    private async Task ToggleRevealAsync()
+    {
+        if (_card is null)
+            return;
+
+        if (_revealed is not null)
+        {
+            _revealed = null;
+            _showCvc = false;
+            return;
+        }
+
+        _isBusy = true;
+        _error = null;
+
+        var result = await CardApiClient.RevealAsync(_card.CardId);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync("RevealCardDetails");
+            if (token is null)
+            {
+                _isBusy = false;
+                _error = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await CardApiClient.RevealAsync(_card.CardId, token);
+        }
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _revealed = result.Value;
+    }
+
+    private async Task FreezeAsync() => await RunActionAsync(() => CardApiClient.FreezeAsync(CardId));
+
+    private async Task UnfreezeAsync() => await RunActionAsync(() => CardApiClient.UnfreezeAsync(CardId));
+
+    private async Task CloseAsync() => await RunActionAsync(() => CardApiClient.CloseAsync(CardId));
+
+    private async Task SaveLimitAsync()
+    {
+        _isBusy = true;
+        _error = null;
+
+        var result = await CardApiClient.SetSpendingLimitAsync(CardId, _limitInput);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync("ChangeSpendingLimits");
+            if (token is null)
+            {
+                _isBusy = false;
+                _error = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await CardApiClient.SetSpendingLimitAsync(CardId, _limitInput, token);
+        }
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        Snackbar.Add("Spending limit updated.", Severity.Success);
+        await LoadCardAsync();
+    }
+
+    private async Task RunActionAsync(Func<Task<ApiResult>> action)
+    {
+        _isBusy = true;
+        _error = null;
+
+        var result = await action();
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        await LoadCardAsync();
+    }
+
+    private async Task<string?> RequestStepUpTokenAsync(string operation)
+    {
+        var parameters = new DialogParameters<StepUpDialog> { { x => x.Operation, operation } };
+        var dialog = await DialogService.ShowAsync<StepUpDialog>("Verify it's you", parameters);
+        var result = await dialog.Result;
+
+        return result is { Canceled: false } ? result.Data as string : null;
+    }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Active" => Color.Success,
+        "Frozen" => Color.Info,
+        "Closed" => Color.Default,
+        _ => Color.Default,
+    };
+}

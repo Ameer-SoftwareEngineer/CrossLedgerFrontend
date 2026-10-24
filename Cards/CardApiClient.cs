@@ -15,10 +15,9 @@ public sealed class CardApiClient
         _http = http;
     }
 
-    public async Task<ApiResult<CardResponse>> IssueAsync(Guid linkedWalletId, string cardholderName)
+    public async Task<ApiResult<CardResponse>> IssueAsync(IssueCardRequest request)
     {
-        var response = await HttpCall.TrySendAsync(
-            () => _http.PostAsJsonAsync("api/v1/cards", new IssueCardRequest(linkedWalletId, cardholderName)));
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsJsonAsync("api/v1/cards", request));
         if (response is null)
             return ApiResult<CardResponse>.Failed(null, HttpCall.NetworkErrorMessage);
 
@@ -107,6 +106,37 @@ public sealed class CardApiClient
         }
 
         return ApiResult.Success();
+    }
+
+    /// <summary>Step-up gated the same way a regular transfer is (above
+    /// Limits:StepUpAbove) - same retry-with-token pattern as every other step-up-gated
+    /// call in this client.</summary>
+    public async Task<ApiResult<TopUpCardResponse>> TopUpAsync(Guid cardId, Guid sourceWalletId, decimal amount, string idempotencyKey, string? stepUpToken = null)
+    {
+        var response = await HttpCall.TrySendAsync(async () =>
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"api/v1/cards/{cardId}/top-up")
+            {
+                Content = JsonContent.Create(new TopUpCardRequest(sourceWalletId, amount)),
+            };
+            message.Headers.Add("Idempotency-Key", idempotencyKey);
+            if (stepUpToken is not null)
+                message.Headers.Add(StepUpTokenHeaderName, stepUpToken);
+
+            return await _http.SendAsync(message);
+        });
+        if (response is null)
+            return ApiResult<TopUpCardResponse>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<TopUpCardResponse>.Failed(code, message);
+        }
+
+        var topUp = await response.Content.ReadFromJsonAsync<TopUpCardResponse>()
+            ?? throw new InvalidOperationException("Top-up succeeded but the response body was empty.");
+        return ApiResult<TopUpCardResponse>.Success(topUp);
     }
 
     public async Task<ApiResult<CardPurchaseResponse>> SimulatePurchaseAsync(Guid cardId, string merchantName, decimal amount, string idempotencyKey)

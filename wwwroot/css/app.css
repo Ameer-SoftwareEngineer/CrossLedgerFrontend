@@ -423,6 +423,70 @@ body {
     letter-spacing: -0.01em;
 }
 
+/* ---- Card list row ---- */
+.cl-card-row {
+    cursor: pointer;
+    gap: 14px;
+    border-radius: 12px;
+    transition: background-color 150ms ease, transform 150ms ease;
+}
+
+.cl-card-row:hover {
+    background-color: rgba(16, 185, 129, 0.06);
+    transform: translateX(2px);
+}
+
+.cl-card-row-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #06110C;
+    background: linear-gradient(135deg, #34D399 0%, #10B981 55%, #22D3EE 100%);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.35), 0 6px 14px -4px rgba(16, 185, 129, 0.55);
+    flex-shrink: 0;
+}
+
+.cl-card-row-name {
+    font-weight: 700;
+}
+
+/* ---- The card visual on the View Details tab ---- */
+.cl-card-visual {
+    width: 100%;
+    max-width: 340px;
+    aspect-ratio: 1.586;
+    border-radius: 18px;
+    padding: 22px;
+    color: #F4FFFC;
+    background: linear-gradient(135deg, #10B981 0%, #0E7490 60%, #22D3EE 100%);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.3), 0 20px 40px -16px rgba(14, 116, 144, 0.55);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.cl-card-visual-chip {
+    width: 40px;
+    height: 30px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, #FDE68A 0%, #F59E0B 100%);
+}
+
+.cl-card-visual-number {
+    font-family: monospace;
+    font-size: 1.25rem;
+    letter-spacing: .08em;
+}
+
+.cl-card-visual-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
 .cl-wallet-accent {
     position: absolute;
     top: 0;

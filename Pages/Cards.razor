@@ -1,125 +1,68 @@
 @page "/cards"
 @attribute [Authorize]
-@inject WalletApiClient WalletApiClient
 @inject CardApiClient CardApiClient
+@inject NavigationManager Navigation
 
 <PageTitle>Cards - CrossLedger</PageTitle>
 
 <MudText Typo="Typo.h4" GutterBottom="true">Cards</MudText>
 <MudText Typo="Typo.body2" Class="mb-4">
-    Dev-simulated virtual cards linked to one of your wallets - no real card network sits behind these. Use
-    "Simulate purchase" to generate a debit against the linked wallet, visible in <MudLink Href="/">Transactions</MudLink>.
+    Dev-simulated prepaid cards - no real card network sits behind these. Each card holds its own balance; top it up
+    from one of your wallets, then spend from the card.
 </MudText>
 
-@if (_isLoadingWallets)
+@if (_isLoading)
 {
     <MudProgressCircular Indeterminate="true" />
 }
-else if (_wallets.Count == 0)
+else if (_error is not null)
 {
-    <MudAlert Severity="Severity.Info">
-        You need at least one wallet before you can issue a card. Add one from the <MudLink Href="/wallets">Wallets</MudLink> page.
-    </MudAlert>
+    <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
 }
 else
 {
-    <MudPaper Class="pa-4 mb-6" Style="max-width: 560px;" Elevation="0">
-        @if (_error is not null)
+    <MudPaper Class="pa-2" Style="max-width: 560px;" Elevation="0">
+        @if (_cards.Count == 0)
         {
-            <MudAlert Severity="Severity.Error" Class="mb-3">@_error</MudAlert>
+            <MudText Typo="Typo.body2" Class="cl-dash-subtitle pa-4">No cards yet - add one below.</MudText>
         }
-        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
-            <MudSelect T="Guid" @bind-Value="_newCardWalletId" Label="Linked wallet" Style="min-width: 160px;">
-                @foreach (var wallet in _wallets)
-                {
-                    <MudSelectItem T="Guid" Value="@wallet.WalletId">@wallet.Currency</MudSelectItem>
-                }
-            </MudSelect>
-            <MudTextField @bind-Value="_newCardholderName" Label="Cardholder name" Style="min-width: 200px;" />
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="IssueCardAsync" Disabled="_isIssuing">
-                @(_isIssuing ? "Issuing..." : "Issue card")
-            </MudButton>
-        </MudStack>
-    </MudPaper>
-
-    @if (_isLoadingCards)
-    {
-        <MudProgressCircular Indeterminate="true" />
-    }
-    else if (_cards.Count == 0)
-    {
-        <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No cards yet - issue one above.</MudText>
-    }
-    else
-    {
-        <MudGrid>
+        else
+        {
             @foreach (var card in _cards)
             {
-                <MudItem xs="12" sm="6" md="4">
-                    <CardTile Card="card" OnChanged="ReloadAsync" />
-                </MudItem>
+                <MudPaper Class="pa-4 d-flex align-center cl-card-row" Elevation="0" @onclick="@(() => Navigation.NavigateTo($"/cards/{card.CardId}"))">
+                    <div class="cl-card-row-icon">
+                        <MudIcon Icon="@Icons.Material.Filled.CreditCard" />
+                    </div>
+                    <div class="flex-grow-1">
+                        <MudText Typo="Typo.subtitle1" Class="cl-card-row-name">@card.CardholderName</MudText>
+                        <MudText Typo="Typo.body2" Class="cl-dash-subtitle">@(card.CardType == "Virtual" ? "Virtual card" : "Physical card")</MudText>
+                        <MudText Typo="Typo.body2" Class="cl-dash-subtitle" Style="font-family: monospace;">XXXX XXXX XXXX @card.Last4</MudText>
+                    </div>
+                    <div class="text-right">
+                        <MudText Typo="Typo.subtitle2">@SupportedCurrencies.Format(card.Balance, card.Currency) @card.Currency</MudText>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(card.Status)">@card.Status</MudChip>
+                    </div>
+                </MudPaper>
+                <MudDivider />
             }
-        </MudGrid>
-    }
+        }
+
+        <MudButton Variant="Variant.Outlined" FullWidth="true" Class="mt-3" Href="/cards/new">
+            Add New Card
+        </MudButton>
+    </MudPaper>
 }
 
 @code {
-    private List<WalletSummaryResponse> _wallets = new();
-    private bool _isLoadingWallets = true;
-
     private List<CardResponse> _cards = new();
-    private bool _isLoadingCards = true;
-
-    private Guid _newCardWalletId;
-    private string _newCardholderName = string.Empty;
-    private bool _isIssuing;
+    private bool _isLoading = true;
     private string? _error;
 
     protected override async Task OnInitializedAsync()
     {
-        var walletsResult = await WalletApiClient.ListMineAsync();
-        _isLoadingWallets = false;
-
-        if (!walletsResult.IsSuccess)
-        {
-            _error = walletsResult.ErrorMessage;
-        }
-        else
-        {
-            _wallets = walletsResult.Value!.OrderBy(w => w.Currency).ToList();
-            if (_wallets.Count > 0)
-                _newCardWalletId = _wallets[0].WalletId;
-        }
-
-        await LoadCardsAsync();
-    }
-
-    private async Task LoadCardsAsync()
-    {
-        _isLoadingCards = true;
         var result = await CardApiClient.ListMineAsync();
-        _isLoadingCards = false;
-
-        if (result.IsSuccess)
-            _cards = result.Value!.OrderByDescending(c => c.IssuedAt).ToList();
-    }
-
-    private async Task ReloadAsync() => await LoadCardsAsync();
-
-    private async Task IssueCardAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_newCardholderName))
-        {
-            _error = "Enter a cardholder name.";
-            return;
-        }
-
-        _isIssuing = true;
-        _error = null;
-
-        var result = await CardApiClient.IssueAsync(_newCardWalletId, _newCardholderName);
-
-        _isIssuing = false;
+        _isLoading = false;
 
         if (!result.IsSuccess)
         {
@@ -127,6 +70,14 @@ else
             return;
         }
 
-        await LoadCardsAsync();
+        _cards = result.Value!.OrderByDescending(c => c.IssuedAt).ToList();
     }
+
+    private static Color StatusColor(string status) => status switch
+    {
+        "Active" => Color.Success,
+        "Frozen" => Color.Info,
+        "Closed" => Color.Default,
+        _ => Color.Default,
+    };
 }
