@@ -83,6 +83,24 @@ public sealed class AdminApiClient
         return ApiResult<WebhookEventPageResponse>.Success(page);
     }
 
+    public async Task<ApiResult<SecurityAuditEventPageResponse>> ListSecurityEventsAsync(int pageNumber, int pageSize)
+    {
+        var response = await HttpCall.TrySendAsync(
+            () => _http.GetAsync($"api/v1/admin/security-events?pageNumber={pageNumber}&pageSize={pageSize}"));
+        if (response is null)
+            return ApiResult<SecurityAuditEventPageResponse>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<SecurityAuditEventPageResponse>.Failed(code, message);
+        }
+
+        var page = await response.Content.ReadFromJsonAsync<SecurityAuditEventPageResponse>()
+            ?? throw new InvalidOperationException("Security events request succeeded but the response body was empty.");
+        return ApiResult<SecurityAuditEventPageResponse>.Success(page);
+    }
+
     public async Task<ApiResult<IReadOnlyList<PendingRegistrationResponse>>> ListPendingRegistrationsAsync()
     {
         var response = await HttpCall.TrySendAsync(() => _http.GetAsync("api/v1/admin/registrations/pending"));

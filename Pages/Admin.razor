@@ -162,6 +162,41 @@
             </PagerContent>
         </MudTable>
     </MudTabPanel>
+
+    <MudTabPanel Text="Security events">
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Every login, 2FA challenge, step-up token request and 2FA disable - success and failure alike - with the
+            caller's IP and user agent (specification 6.4's full audit trail).
+        </MudText>
+        <MudTable @ref="_securityEventsTable" ServerData="LoadSecurityEventsAsync" Dense="true">
+            <HeaderContent>
+                <MudTh>When</MudTh>
+                <MudTh>Event</MudTh>
+                <MudTh>Outcome</MudTh>
+                <MudTh>Subject</MudTh>
+                <MudTh>IP address</MudTh>
+                <MudTh>User agent</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="When">@context.OccurredAt.ToLocalTime().ToString("g")</MudTd>
+                <MudTd DataLabel="Event">@context.EventType</MudTd>
+                <MudTd DataLabel="Outcome">
+                    <MudChip T="string" Color="@(context.Succeeded ? Color.Success : Color.Error)" Size="Size.Small">
+                        @(context.Succeeded ? "Succeeded" : context.FailureReason ?? "Failed")
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Subject">@context.Subject</MudTd>
+                <MudTd DataLabel="IP address">@(context.IpAddress ?? "-")</MudTd>
+                <MudTd DataLabel="User agent">@(context.UserAgent ?? "-")</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText>No security events recorded yet.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+            </PagerContent>
+        </MudTable>
+    </MudTabPanel>
 </MudTabs>
 
 @code {
@@ -184,6 +219,7 @@
     private string? _healthError;
 
     private MudTable<WebhookEventResponse> _webhookTable = null!;
+    private MudTable<SecurityAuditEventResponse> _securityEventsTable = null!;
 
     protected override async Task OnInitializedAsync()
     {
@@ -300,6 +336,19 @@
         }
 
         return new TableData<WebhookEventResponse> { Items = result.Value!.Entries, TotalItems = result.Value.TotalCount };
+    }
+
+    private async Task<TableData<SecurityAuditEventResponse>> LoadSecurityEventsAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await AdminApiClient.ListSecurityEventsAsync(state.Page + 1, state.PageSize);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Failed to load security events.", Severity.Error);
+            return new TableData<SecurityAuditEventResponse> { Items = Array.Empty<SecurityAuditEventResponse>(), TotalItems = 0 };
+        }
+
+        return new TableData<SecurityAuditEventResponse> { Items = result.Value!.Entries, TotalItems = result.Value.TotalCount };
     }
 
     private static Color StatusColor(string status) => status switch
