@@ -11,6 +11,7 @@ public sealed class TokenStore
 {
     private const string AccessTokenKey = "cl_access_token";
     private const string RefreshTokenKey = "cl_refresh_token";
+    private const string TrustedDeviceTokenKey = "cl_trusted_device_token";
 
     private readonly ILocalStorageService _localStorage;
     private readonly ISessionStorageService _sessionStorage;
@@ -60,4 +61,17 @@ public sealed class TokenStore
         await _sessionStorage.RemoveItemAsync(AccessTokenKey);
         await _sessionStorage.RemoveItemAsync(RefreshTokenKey);
     }
+
+    // The trusted-device grant is deliberately independent of "Remember me" (always
+    // local storage, never cleared by LogoutAsync) - its whole point is to still be
+    // there the next time this browser logs in, session-persistence choice or manual
+    // logout notwithstanding.
+    public async Task SaveTrustedDeviceTokenAsync(string token) =>
+        await _localStorage.SetItemAsStringAsync(TrustedDeviceTokenKey, token);
+
+    public async Task<string?> GetTrustedDeviceTokenAsync() =>
+        await _localStorage.GetItemAsStringAsync(TrustedDeviceTokenKey);
+
+    public async Task ClearTrustedDeviceTokenAsync() =>
+        await _localStorage.RemoveItemAsync(TrustedDeviceTokenKey);
 }

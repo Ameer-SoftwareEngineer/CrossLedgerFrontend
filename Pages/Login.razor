@@ -119,6 +119,7 @@
         <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">Open your authenticator app and enter the current code.</MudText>
 
         <MudTextField @bind-Value="_code" Label="6-digit code" MaxLength="6" Immediate="true" AutoFocus="true" />
+        <MudCheckBox T="bool" @bind-Value="_rememberDevice" Label="Remember this device for 30 days" Dense="true" Class="mt-2" />
 
         @if (_error is not null)
         {
@@ -141,6 +142,7 @@
         </MudText>
 
         <MudTextField @bind-Value="_code" Label="6-digit code" MaxLength="6" Immediate="true" AutoFocus="true" />
+        <MudCheckBox T="bool" @bind-Value="_rememberDevice" Label="Remember this device for 30 days" Dense="true" Class="mt-2" />
 
         @if (_error is not null)
         {
@@ -195,6 +197,7 @@
     private string? _maskedPhoneNumber;
 
     private string _code = string.Empty;
+    private bool _rememberDevice;
     private string? _totpSecret;
     private string? _totpQrDataUri;
     private IReadOnlyList<string> _recoveryCodes = [];
@@ -234,6 +237,15 @@
         _requiresSetup = challenge.RequiresSetup;
         _availableMethods = challenge.AvailableMethods;
         _maskedPhoneNumber = challenge.MaskedPhoneNumber;
+
+        // A device remembered from an earlier login skips the 2FA step entirely - try it
+        // silently before showing any method-choice UI at all. A false here just means
+        // nothing was stored or it no longer verifies; fall through to the normal flow.
+        if (!_requiresSetup && await AuthApiClient.TryLoginWithTrustedDeviceAsync(_challengeToken, _rememberMe))
+        {
+            NavigateAfterLogin();
+            return;
+        }
 
         if (_availableMethods.Count == 1)
         {
@@ -313,7 +325,7 @@
         _isSubmitting = true;
         _error = null;
 
-        var result = await AuthApiClient.VerifyTwoFactorAsync(_challengeToken!, method, _code, _rememberMe);
+        var result = await AuthApiClient.VerifyTwoFactorAsync(_challengeToken!, method, _code, _rememberMe, _rememberDevice);
 
         _isSubmitting = false;
 

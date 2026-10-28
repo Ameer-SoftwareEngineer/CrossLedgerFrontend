@@ -17,7 +17,8 @@ public sealed record TokenResponse(
     string AccessToken,
     DateTimeOffset AccessTokenExpiresAt,
     string RefreshToken,
-    DateTimeOffset RefreshTokenExpiresAt);
+    DateTimeOffset RefreshTokenExpiresAt,
+    string? TrustedDeviceToken = null);
 
 public sealed record RefreshTokenRequest(string RefreshToken);
 
@@ -30,8 +31,15 @@ public sealed record LoginChallengeResponse(
 
 public sealed record SendLoginSmsCodeRequest(string ChallengeToken);
 
-/// <summary>Method is "Totp" or "Sms".</summary>
-public sealed record VerifyTwoFactorLoginRequest(string ChallengeToken, string Method, string Code);
+/// <summary>Method is "Totp", "Sms" or "TrustedDevice".</summary>
+public sealed record VerifyTwoFactorLoginRequest(string ChallengeToken, string Method, string Code, bool RememberDevice = false);
+
+public sealed record TrustedDeviceResponse(
+    Guid Id,
+    string DeviceLabel,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? LastUsedAt,
+    DateTimeOffset ExpiresAt);
 
 public sealed record BeginTwoFactorLoginTotpSetupRequest(string ChallengeToken);
 

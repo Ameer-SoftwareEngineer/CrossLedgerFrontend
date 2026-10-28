@@ -136,10 +136,10 @@ public sealed class AuthApiClient
     /// AuthorizeRouteView remounts the routed component the instant auth state changes -
     /// notifying too early wipes whatever local step state Login.razor was mid-render
     /// with. The caller notifies itself, right before it navigates away.</summary>
-    public async Task<ApiResult> VerifyTwoFactorAsync(string challengeToken, string method, string code, bool rememberMe)
+    public async Task<ApiResult> VerifyTwoFactorAsync(string challengeToken, string method, string code, bool rememberMe, bool rememberDevice = false)
     {
         var response = await HttpCall.TrySendAsync(
-            () => _http.PostAsJsonAsync("api/v1/auth/2fa/login/verify", new VerifyTwoFactorLoginRequest(challengeToken, method, code)));
+            () => _http.PostAsJsonAsync("api/v1/auth/2fa/login/verify", new VerifyTwoFactorLoginRequest(challengeToken, method, code, rememberDevice)));
         if (response is null)
             return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
 
@@ -154,7 +154,29 @@ public sealed class AuthApiClient
 
         await _tokenStore.SaveAsync(tokens.AccessToken, tokens.RefreshToken, rememberMe);
 
+        if (!string.IsNullOrEmpty(tokens.TrustedDeviceToken))
+            await _tokenStore.SaveTrustedDeviceTokenAsync(tokens.TrustedDeviceToken);
+
         return ApiResult.Success();
+    }
+
+    /// <summary>Silently redeems a trusted-device grant from a previous login, if this
+    /// browser has one stored, so the 2FA step never has to render at all. False means
+    /// either there was nothing stored or the grant no longer verifies (expired, revoked,
+    /// or from a different account) - the stale token is cleared either way so later
+    /// logins don't keep retrying it.</summary>
+    public async Task<bool> TryLoginWithTrustedDeviceAsync(string challengeToken, bool rememberMe)
+    {
+        var deviceToken = await _tokenStore.GetTrustedDeviceTokenAsync();
+        if (string.IsNullOrWhiteSpace(deviceToken))
+            return false;
+
+        var result = await VerifyTwoFactorAsync(challengeToken, "TrustedDevice", deviceToken, rememberMe);
+
+        if (!result.IsSuccess)
+            await _tokenStore.ClearTrustedDeviceTokenAsync();
+
+        return result.IsSuccess;
     }
 
     public async Task<ApiResult<BeginTotpEnrollmentResponse>> BeginTwoFactorTotpSetupAsync(string challengeToken)

@@ -87,4 +87,36 @@ public sealed class TwoFactorApiClient
 
         return ApiResult.Success();
     }
+
+    public async Task<ApiResult<IReadOnlyList<TrustedDeviceResponse>>> ListTrustedDevicesAsync()
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync("api/v1/auth/2fa/trusted-devices"));
+        if (response is null)
+            return ApiResult<IReadOnlyList<TrustedDeviceResponse>>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<IReadOnlyList<TrustedDeviceResponse>>.Failed(code, message);
+        }
+
+        var devices = await response.Content.ReadFromJsonAsync<List<TrustedDeviceResponse>>()
+            ?? new List<TrustedDeviceResponse>();
+        return ApiResult<IReadOnlyList<TrustedDeviceResponse>>.Success(devices);
+    }
+
+    public async Task<ApiResult> RevokeTrustedDeviceAsync(Guid deviceId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.DeleteAsync($"api/v1/auth/2fa/trusted-devices/{deviceId}"));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
 }
