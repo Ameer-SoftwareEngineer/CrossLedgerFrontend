@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [modern-professional-theme, main]
+  pull_request:
+    branches: [modern-professional-theme, main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore CrossLedgerFrontend.csproj
+
+      - name: Build
+        run: dotnet build CrossLedgerFrontend.csproj --no-restore --configuration Release
+
+      # Publish exercises the full Blazor WASM pipeline (trimming, Brotli compression,
+      # static asset packaging) that a plain build skips - closer to what Azure Static
+      # Web Apps actually does on deploy, so it catches issues build alone would miss.
+      - name: Publish
+        run: dotnet publish CrossLedgerFrontend.csproj --no-build --configuration Release --output ./publish
+
+      - name: Upload published output
+        uses: actions/upload-artifact@v4
+        with:
+          name: wwwroot
+          path: publish/wwwroot
+          retention-days: 14
