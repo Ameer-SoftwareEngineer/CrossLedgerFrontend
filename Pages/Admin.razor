@@ -242,6 +242,80 @@
             }
         }
     </MudTabPanel>
+
+    <MudTabPanel Text="Manual transfer">
+        <MudText Typo="Typo.body2" Class="mb-4">
+            An admin-only direct transfer between two wallets, posted through dbo.usp_PostTransfer rather than a
+            Quote - for support/ops corrections. The regular customer transfer flow is unaffected.
+        </MudText>
+
+        <MudPaper Class="pa-6" Style="max-width: 560px;" Elevation="2">
+            <MudGrid>
+                <MudItem xs="9">
+                    <MudTextField T="string" @bind-Value="_sourceWalletIdText" Label="Source wallet ID" />
+                </MudItem>
+                <MudItem xs="3" Class="d-flex align-center">
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" FullWidth="true"
+                               OnClick="@(() => LookUpBalanceAsync(isSource: true))" Disabled="_isLookingUpSource">
+                        Look up
+                    </MudButton>
+                </MudItem>
+                @if (_sourceBalance is not null)
+                {
+                    <MudItem xs="12" Class="mt-n3">
+                        <MudText Typo="Typo.caption" Class="cl-dash-subtitle">
+                            @SupportedCurrencies.Format(_sourceBalance.Balance, _sourceBalance.Currency) @_sourceBalance.Currency
+                        </MudText>
+                    </MudItem>
+                }
+
+                <MudItem xs="9" Class="mt-2">
+                    <MudTextField T="string" @bind-Value="_targetWalletIdText" Label="Target wallet ID" />
+                </MudItem>
+                <MudItem xs="3" Class="d-flex align-center mt-2">
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" FullWidth="true"
+                               OnClick="@(() => LookUpBalanceAsync(isSource: false))" Disabled="_isLookingUpTarget">
+                        Look up
+                    </MudButton>
+                </MudItem>
+                @if (_targetBalance is not null)
+                {
+                    <MudItem xs="12" Class="mt-n3">
+                        <MudText Typo="Typo.caption" Class="cl-dash-subtitle">
+                            @SupportedCurrencies.Format(_targetBalance.Balance, _targetBalance.Currency) @_targetBalance.Currency
+                        </MudText>
+                    </MudItem>
+                }
+
+                <MudItem xs="6" Class="mt-2">
+                    <MudNumericField T="decimal" @bind-Value="_sourceAmount" Label="Source amount" Min="0.01m" />
+                </MudItem>
+                <MudItem xs="6" Class="mt-2">
+                    <MudNumericField T="decimal" @bind-Value="_targetAmount" Label="Target amount" Min="0.01m" />
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.caption" Class="cl-dash-subtitle mt-3">
+                Use equal amounts for a same-currency move. Different amounts post a manual, admin-set cross-currency rate.
+            </MudText>
+
+            @if (_manualTransferError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-4">@_manualTransferError</MudAlert>
+            }
+            @if (_lastManualTransfer is not null)
+            {
+                <MudAlert Severity="Severity.Success" Class="mt-4">
+                    Posted transfer @_lastManualTransfer.TransferId at @_lastManualTransfer.PostedAt.ToLocalTime().ToString("g").
+                </MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4"
+                       OnClick="PostManualTransferAsync" Disabled="_isPostingManualTransfer">
+                @(_isPostingManualTransfer ? "Posting..." : "Post transfer")
+            </MudButton>
+        </MudPaper>
+    </MudTabPanel>
 </MudTabs>
 
 @code {
@@ -269,6 +343,19 @@
     private List<LedgerImbalanceResponse>? _imbalances;
     private bool _isReconciling;
     private string? _reconciliationError;
+
+    private string _sourceWalletIdText = string.Empty;
+    private string _targetWalletIdText = string.Empty;
+    private decimal _sourceAmount = 1m;
+    private decimal _targetAmount = 1m;
+    private WalletBalanceResponse? _sourceBalance;
+    private WalletBalanceResponse? _targetBalance;
+    private bool _isLookingUpSource;
+    private bool _isLookingUpTarget;
+    private bool _isPostingManualTransfer;
+    private string? _manualTransferError;
+    private ManualTransferResponse? _lastManualTransfer;
+    private string _manualTransferIdempotencyKey = Guid.NewGuid().ToString();
 
     protected override async Task OnInitializedAsync()
     {
@@ -416,6 +503,60 @@
         }
 
         _imbalances = result.Value!.ToList();
+    }
+
+    private async Task LookUpBalanceAsync(bool isSource)
+    {
+        var text = isSource ? _sourceWalletIdText : _targetWalletIdText;
+        if (!Guid.TryParse(text, out var walletId))
+        {
+            Snackbar.Add("Enter a valid wallet ID (GUID) first.", Severity.Warning);
+            return;
+        }
+
+        if (isSource) _isLookingUpSource = true; else _isLookingUpTarget = true;
+
+        var result = await AdminApiClient.GetWalletBalanceAsync(walletId);
+
+        if (isSource) _isLookingUpSource = false; else _isLookingUpTarget = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Wallet not found.", Severity.Error);
+            return;
+        }
+
+        if (isSource) _sourceBalance = result.Value; else _targetBalance = result.Value;
+    }
+
+    private async Task PostManualTransferAsync()
+    {
+        _manualTransferError = null;
+
+        if (!Guid.TryParse(_sourceWalletIdText, out var sourceWalletId) || !Guid.TryParse(_targetWalletIdText, out var targetWalletId))
+        {
+            _manualTransferError = "Both wallet IDs must be valid GUIDs.";
+            return;
+        }
+
+        _isPostingManualTransfer = true;
+
+        var request = new ManualTransferRequest(sourceWalletId, targetWalletId, _sourceAmount, _targetAmount);
+        var result = await AdminApiClient.PostManualTransferAsync(request, _manualTransferIdempotencyKey);
+
+        _isPostingManualTransfer = false;
+
+        if (!result.IsSuccess)
+        {
+            _manualTransferError = result.ErrorMessage;
+            return;
+        }
+
+        _lastManualTransfer = result.Value;
+        _manualTransferIdempotencyKey = Guid.NewGuid().ToString();
+        _sourceBalance = null;
+        _targetBalance = null;
+        Snackbar.Add("Manual transfer posted.", Severity.Success);
     }
 
     private static Color StatusColor(string status) => status switch

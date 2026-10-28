@@ -24,6 +24,12 @@ public sealed record SecurityAuditEventPageResponse(IReadOnlyList<SecurityAuditE
 
 public sealed record LedgerImbalanceResponse(string CurrencyCode, decimal NetAmount);
 
+public sealed record WalletBalanceResponse(string Currency, decimal Balance);
+
+public sealed record ManualTransferRequest(Guid SourceWalletId, Guid TargetWalletId, decimal SourceAmount, decimal TargetAmount);
+
+public sealed record ManualTransferResponse(Guid TransferId, DateTimeOffset PostedAt);
+
 public sealed record PendingRegistrationResponse(
     Guid Id,
     string Email,

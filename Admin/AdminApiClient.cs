@@ -1,3 +1,4 @@
+using System.Net.Http;
 using System.Net.Http.Json;
 using CrossLedgerFrontend.Api;
 using CrossLedgerFrontend.Contracts;
@@ -163,6 +164,49 @@ public sealed class AdminApiClient
         }
 
         return ApiResult.Success();
+    }
+
+    public async Task<ApiResult<WalletBalanceResponse>> GetWalletBalanceAsync(Guid walletId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync($"api/v1/admin/wallets/{walletId}/balance"));
+        if (response is null)
+            return ApiResult<WalletBalanceResponse>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<WalletBalanceResponse>.Failed(code, message);
+        }
+
+        var balance = await response.Content.ReadFromJsonAsync<WalletBalanceResponse>()
+            ?? throw new InvalidOperationException("Wallet balance request succeeded but the response body was empty.");
+        return ApiResult<WalletBalanceResponse>.Success(balance);
+    }
+
+    public async Task<ApiResult<ManualTransferResponse>> PostManualTransferAsync(ManualTransferRequest request, string idempotencyKey)
+    {
+        var response = await HttpCall.TrySendAsync(async () =>
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, "api/v1/admin/manual-transfer")
+            {
+                Content = JsonContent.Create(request),
+            };
+            message.Headers.Add("Idempotency-Key", idempotencyKey);
+
+            return await _http.SendAsync(message);
+        });
+        if (response is null)
+            return ApiResult<ManualTransferResponse>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<ManualTransferResponse>.Failed(code, message);
+        }
+
+        var transfer = await response.Content.ReadFromJsonAsync<ManualTransferResponse>()
+            ?? throw new InvalidOperationException("Manual transfer posted but the response body was empty.");
+        return ApiResult<ManualTransferResponse>.Success(transfer);
     }
 
     public async Task<ApiResult<KycDocumentFile>> GetKycDocumentAsync(Guid userId)
