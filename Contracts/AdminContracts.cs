@@ -22,6 +22,8 @@ public sealed record SecurityAuditEventResponse(
 
 public sealed record SecurityAuditEventPageResponse(IReadOnlyList<SecurityAuditEventResponse> Entries, int TotalCount, int PageNumber, int PageSize);
 
+public sealed record LedgerImbalanceResponse(string CurrencyCode, decimal NetAmount);
+
 public sealed record PendingRegistrationResponse(
     Guid Id,
     string Email,

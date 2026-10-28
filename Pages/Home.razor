@@ -92,6 +92,10 @@ else
                         <MudText Typo="Typo.subtitle2" Class="cl-wallet-currency">@wallet.Currency</MudText>
                     </div>
                     <MudText Typo="Typo.h4" Class="cl-wallet-balance">@SupportedCurrencies.Format(wallet.Balance, wallet.Currency)</MudText>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary" Class="mt-1"
+                               Href="@($"/wallets/{wallet.WalletId}/statement")">
+                        View statement
+                    </MudButton>
                 </MudPaper>
             </MudItem>
         }

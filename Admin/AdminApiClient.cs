@@ -65,6 +65,23 @@ public sealed class AdminApiClient
         return ApiResult<IReadOnlyList<ProviderHealthResponse>>.Success(health);
     }
 
+    public async Task<ApiResult<IReadOnlyList<LedgerImbalanceResponse>>> ReconcileLedgerAsync()
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync("api/v1/admin/ledger-reconciliation"));
+        if (response is null)
+            return ApiResult<IReadOnlyList<LedgerImbalanceResponse>>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<IReadOnlyList<LedgerImbalanceResponse>>.Failed(code, message);
+        }
+
+        var imbalances = await response.Content.ReadFromJsonAsync<List<LedgerImbalanceResponse>>()
+            ?? new List<LedgerImbalanceResponse>();
+        return ApiResult<IReadOnlyList<LedgerImbalanceResponse>>.Success(imbalances);
+    }
+
     public async Task<ApiResult<WebhookEventPageResponse>> ListWebhookEventsAsync(int pageNumber, int pageSize)
     {
         var response = await HttpCall.TrySendAsync(

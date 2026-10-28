@@ -70,4 +70,24 @@ public sealed class WalletApiClient
             ?? throw new InvalidOperationException("Transaction history request succeeded but the response body was empty.");
         return ApiResult<TransactionHistoryPageResponse>.Success(page);
     }
+
+    public async Task<ApiResult<AccountStatementResponse>> GetStatementAsync(Guid walletId, DateTimeOffset fromDate, DateTimeOffset toDate)
+    {
+        var query = $"api/v1/wallets/{walletId}/statement" +
+            $"?fromDate={Uri.EscapeDataString(fromDate.ToString("O"))}&toDate={Uri.EscapeDataString(toDate.ToString("O"))}";
+
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync(query));
+        if (response is null)
+            return ApiResult<AccountStatementResponse>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<AccountStatementResponse>.Failed(code, message);
+        }
+
+        var statement = await response.Content.ReadFromJsonAsync<AccountStatementResponse>()
+            ?? throw new InvalidOperationException("Statement request succeeded but the response body was empty.");
+        return ApiResult<AccountStatementResponse>.Success(statement);
+    }
 }

@@ -197,6 +197,51 @@
             </PagerContent>
         </MudTable>
     </MudTabPanel>
+
+    <MudTabPanel Text="Ledger reconciliation">
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Specification 2.1's double-entry invariant: every currency's ledger entries must sum to exactly zero.
+            Runs dbo.usp_ReconcileLedger on demand - there's no scheduled nightly job wired up yet.
+        </MudText>
+        <MudButton Variant="Variant.Outlined" OnClick="RunReconciliationAsync" Disabled="_isReconciling" Class="mb-4">
+            @(_isReconciling ? "Checking..." : "Run integrity check")
+        </MudButton>
+
+        @if (_reconciliationError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_reconciliationError</MudAlert>
+        }
+        else if (_imbalances is not null)
+        {
+            @if (_imbalances.Count == 0)
+            {
+                <MudAlert Severity="Severity.Success">Ledger is balanced - every currency sums to zero.</MudAlert>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">
+                    @_imbalances.Count currenc@(_imbalances.Count == 1 ? "y is" : "ies are") out of balance.
+                </MudAlert>
+                <MudSimpleTable Dense="true">
+                    <thead>
+                        <tr>
+                            <th>Currency</th>
+                            <th style="text-align: right;">Net amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var imbalance in _imbalances)
+                        {
+                            <tr>
+                                <td>@imbalance.CurrencyCode</td>
+                                <td style="text-align: right;">@imbalance.NetAmount</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        }
+    </MudTabPanel>
 </MudTabs>
 
 @code {
@@ -220,6 +265,10 @@
 
     private MudTable<WebhookEventResponse> _webhookTable = null!;
     private MudTable<SecurityAuditEventResponse> _securityEventsTable = null!;
+
+    private List<LedgerImbalanceResponse>? _imbalances;
+    private bool _isReconciling;
+    private string? _reconciliationError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -349,6 +398,24 @@
         }
 
         return new TableData<SecurityAuditEventResponse> { Items = result.Value!.Entries, TotalItems = result.Value.TotalCount };
+    }
+
+    private async Task RunReconciliationAsync()
+    {
+        _isReconciling = true;
+        _reconciliationError = null;
+
+        var result = await AdminApiClient.ReconcileLedgerAsync();
+
+        _isReconciling = false;
+
+        if (!result.IsSuccess)
+        {
+            _reconciliationError = result.ErrorMessage;
+            return;
+        }
+
+        _imbalances = result.Value!.ToList();
     }
 
     private static Color StatusColor(string status) => status switch
