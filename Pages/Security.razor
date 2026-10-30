@@ -41,10 +41,14 @@
     else
     {
         <MudText Typo="Typo.body2" Class="mb-2">
-            Add this key to your authenticator app (as a "manual entry" / "setup key"), then enter the 6-digit code it shows.
+            Scan this QR code with your authenticator app - or add the key manually if you can't scan - then enter the
+            6-digit code it shows.
         </MudText>
-        <MudPaper Class="pa-4" Elevation="0" Outlined="true">
-            <MudText Typo="Typo.body2">Account: your CrossLedger login email</MudText>
+        <div class="cl-totp-qr-wrap">
+            <img src="@_totpQrDataUri" alt="Authenticator QR code" class="cl-totp-qr" />
+        </div>
+        <MudPaper Class="pa-4 mt-3" Elevation="0" Outlined="true">
+            <MudText Typo="Typo.body2">Can't scan? Account: your CrossLedger login email</MudText>
             <MudText Typo="Typo.body1" Style="font-family: monospace; word-break: break-all;">@_enrollment.Secret</MudText>
         </MudPaper>
         <MudTextField @bind-Value="_confirmCode" Label="6-digit code" MaxLength="6" Class="mt-4" Immediate="true" />
@@ -60,14 +64,108 @@
     }
 </MudPaper>
 
+<MudPaper Class="pa-6 mt-6" Style="max-width: 520px;" Elevation="2">
+    <MudText Typo="Typo.h6" GutterBottom="true">Trusted devices</MudText>
+    <MudText Typo="Typo.body2" Class="mb-4">
+        Devices you chose "Remember this device" on at login - they skip the 2FA step for up to 30 days. Revoke any you
+        don't recognise or no longer use.
+    </MudText>
+
+    @if (_isLoadingDevices)
+    {
+        <MudProgressCircular Indeterminate="true" />
+    }
+    else if (_devicesError is not null)
+    {
+        <MudAlert Severity="Severity.Error">@_devicesError</MudAlert>
+    }
+    else if (_trustedDevices.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No trusted devices right now.</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead>
+                <tr>
+                    <th>Device</th>
+                    <th>Last used</th>
+                    <th>Expires</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var device in _trustedDevices)
+                {
+                    <tr>
+                        <td>@device.DeviceLabel</td>
+                        <td>@(device.LastUsedAt?.ToLocalTime().ToString("g") ?? "Never")</td>
+                        <td>@device.ExpiresAt.ToLocalTime().ToString("g")</td>
+                        <td>
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
+                                       OnClick="@(() => RevokeDeviceAsync(device.Id))" Disabled="_revokingDeviceId == device.Id">
+                                @(_revokingDeviceId == device.Id ? "Revoking..." : "Revoke")
+                            </MudButton>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</MudPaper>
+
 @code {
     private BeginTotpEnrollmentResponse? _enrollment;
+    private string? _totpQrDataUri;
     private IReadOnlyList<string>? _recoveryCodes;
     private string _confirmCode = string.Empty;
     private bool _isBeginning;
     private bool _isConfirming;
     private bool _isDisabling;
     private string? _error;
+
+    private List<TrustedDeviceResponse> _trustedDevices = new();
+    private bool _isLoadingDevices = true;
+    private string? _devicesError;
+    private Guid? _revokingDeviceId;
+
+    protected override async Task OnInitializedAsync() => await LoadTrustedDevicesAsync();
+
+    private async Task LoadTrustedDevicesAsync()
+    {
+        _isLoadingDevices = true;
+        _devicesError = null;
+
+        var result = await TwoFactorApiClient.ListTrustedDevicesAsync();
+
+        _isLoadingDevices = false;
+
+        if (!result.IsSuccess)
+        {
+            _devicesError = result.ErrorMessage;
+            return;
+        }
+
+        _trustedDevices = result.Value!.OrderByDescending(d => d.LastUsedAt ?? d.CreatedAt).ToList();
+    }
+
+    private async Task RevokeDeviceAsync(Guid deviceId)
+    {
+        _revokingDeviceId = deviceId;
+
+        var result = await TwoFactorApiClient.RevokeTrustedDeviceAsync(deviceId);
+
+        _revokingDeviceId = null;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Failed to revoke device.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Device revoked.", Severity.Success);
+        await LoadTrustedDevicesAsync();
+    }
 
     private async Task BeginEnrollmentAsync()
     {
@@ -85,6 +183,7 @@
         }
 
         _enrollment = result.Value;
+        _totpQrDataUri = TotpQrCodeGenerator.GenerateDataUri(result.Value!.QrCodeUri);
     }
 
     private async Task ConfirmEnrollmentAsync()

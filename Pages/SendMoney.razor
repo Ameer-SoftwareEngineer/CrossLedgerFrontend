@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @implements IDisposable
 @inject WalletApiClient WalletApiClient
+@inject WalletChangeNotifier WalletChangeNotifier
 @inject QuoteApiClient QuoteApiClient
 @inject TransferApiClient TransferApiClient
 @inject AuthenticationStateProvider AuthStateProvider
@@ -19,7 +20,7 @@
 else if (_wallets.Count == 0)
 {
     <MudAlert Severity="Severity.Info">
-        You need at least one wallet before you can send money. Add one from the <MudLink Href="/">Wallets</MudLink> page.
+        You need at least one wallet before you can send money. Add one from the <MudLink Href="/wallets">Wallets</MudLink> page.
     </MudAlert>
 }
 else if (_quote is null)
@@ -77,6 +78,9 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery]
+    public string? FromCurrency { get; set; }
+
     private List<WalletSummaryResponse> _wallets = new();
     private bool _isLoadingWallets = true;
 
@@ -115,7 +119,8 @@ else
         _wallets = result.Value!.OrderBy(w => w.Currency).ToList();
         if (_wallets.Count > 0)
         {
-            _sourceWalletId = _wallets[0].WalletId;
+            var preselected = _wallets.FirstOrDefault(w => w.Currency == FromCurrency);
+            _sourceWalletId = (preselected ?? _wallets[0]).WalletId;
             _targetCurrency = TargetCurrencies.FirstOrDefault();
         }
     }
@@ -223,6 +228,7 @@ else
             Severity.Success);
         await ReloadWalletsAsync();
         ResetToQuoteForm();
+        WalletChangeNotifier.NotifyChanged();
     }
 
     /// <summary>The user might not hold the target currency yet - open a wallet for it on

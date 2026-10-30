@@ -1,10 +1,14 @@
 using Blazored.LocalStorage;
+using Blazored.SessionStorage;
 using CrossLedgerFrontend;
 using CrossLedgerFrontend.Admin;
 using CrossLedgerFrontend.Api;
 using CrossLedgerFrontend.Auth;
+using CrossLedgerFrontend.Cards;
 using CrossLedgerFrontend.Fx;
+using CrossLedgerFrontend.Otc;
 using CrossLedgerFrontend.Payments;
+using CrossLedgerFrontend.Profile;
 using CrossLedgerFrontend.Security;
 using CrossLedgerFrontend.Transfers;
 using CrossLedgerFrontend.Wallets;
@@ -21,6 +25,7 @@ const string ApiBaseAddress = ApiConfig.BaseAddress;
 
 builder.Services.AddMudServices();
 builder.Services.AddBlazoredLocalStorage();
+builder.Services.AddBlazoredSessionStorage();
 
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<CrossLedgerAuthenticationStateProvider>();
@@ -43,11 +48,15 @@ builder.Services.AddScoped<AuthApiClient>(sp => new AuthApiClient(
     sp.GetRequiredService<CrossLedgerAuthenticationStateProvider>()));
 
 builder.Services.AddScoped<WalletApiClient>();
+builder.Services.AddScoped<WalletChangeNotifier>();
 builder.Services.AddScoped<QuoteApiClient>();
 builder.Services.AddScoped<TransferApiClient>();
 builder.Services.AddScoped<TwoFactorApiClient>();
 builder.Services.AddScoped<FxRatesApiClient>();
+builder.Services.AddScoped<OtcApiClient>();
+builder.Services.AddScoped<CardApiClient>();
 builder.Services.AddScoped<PayoutApiClient>();
 builder.Services.AddScoped<AdminApiClient>();
+builder.Services.AddScoped<ProfileApiClient>();
 
 await builder.Build().RunAsync();

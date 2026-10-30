@@ -1,0 +1,107 @@
+@inject AdminApiClient AdminApiClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Full name</MudText><MudText>@Registration.FullName</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Email</MudText><MudText>@Registration.Email</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Phone</MudText><MudText>@Registration.PhoneNumber</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Date of birth</MudText><MudText>@Registration.DateOfBirth.ToString("d MMM yyyy")</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Current address</MudText><MudText>@Registration.Address, @Registration.City, @Registration.StateProvince, @Registration.Country</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Permanent address</MudText><MudText>@Registration.PermanentAddress</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Submitted</MudText><MudText>@Registration.SubmittedAt.ToLocalTime().ToString("g")</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Proof of address</MudText><MudText>@Registration.ProofOfAddressDocumentType (@Registration.ProofOfAddressFileName)</MudText></MudItem>
+        </MudGrid>
+
+        <MudDivider Class="my-4" />
+
+        @if (_isLoadingDocument)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+        }
+        else if (_documentError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_documentError</MudAlert>
+        }
+        else if (_documentDataUri is not null)
+        {
+            <iframe src="@_documentDataUri" style="width: 100%; height: 420px; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"></iframe>
+        }
+
+        @if (_actionError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_actionError</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Close</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Outlined" OnClick="RejectAsync" Disabled="_isSubmitting">Reject</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="ApproveAsync" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Working..." : "Approve")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public PendingRegistrationResponse Registration { get; set; } = null!;
+
+    private bool _isLoadingDocument = true;
+    private string? _documentDataUri;
+    private string? _documentError;
+    private string? _actionError;
+    private bool _isSubmitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await AdminApiClient.GetKycDocumentAsync(Registration.Id);
+        _isLoadingDocument = false;
+
+        if (!result.IsSuccess)
+        {
+            _documentError = result.ErrorMessage ?? "Could not load the document.";
+            return;
+        }
+
+        _documentDataUri = $"data:{result.Value!.ContentType};base64,{Convert.ToBase64String(result.Value.Content)}";
+    }
+
+    private async Task ApproveAsync()
+    {
+        _isSubmitting = true;
+        _actionError = null;
+
+        var result = await AdminApiClient.ApproveRegistrationAsync(Registration.Id);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _actionError = result.ErrorMessage;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private async Task RejectAsync()
+    {
+        _isSubmitting = true;
+        _actionError = null;
+
+        var result = await AdminApiClient.RejectRegistrationAsync(Registration.Id);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _actionError = result.ErrorMessage;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

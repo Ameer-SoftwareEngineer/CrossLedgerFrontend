@@ -1,8 +1,11 @@
+using System.Net.Http;
 using System.Net.Http.Json;
 using CrossLedgerFrontend.Api;
 using CrossLedgerFrontend.Contracts;
 
 namespace CrossLedgerFrontend.Admin;
+
+public sealed record KycDocumentFile(byte[] Content, string ContentType, string FileName);
 
 public sealed class AdminApiClient
 {
@@ -63,6 +66,23 @@ public sealed class AdminApiClient
         return ApiResult<IReadOnlyList<ProviderHealthResponse>>.Success(health);
     }
 
+    public async Task<ApiResult<IReadOnlyList<LedgerImbalanceResponse>>> ReconcileLedgerAsync()
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync("api/v1/admin/ledger-reconciliation"));
+        if (response is null)
+            return ApiResult<IReadOnlyList<LedgerImbalanceResponse>>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<IReadOnlyList<LedgerImbalanceResponse>>.Failed(code, message);
+        }
+
+        var imbalances = await response.Content.ReadFromJsonAsync<List<LedgerImbalanceResponse>>()
+            ?? new List<LedgerImbalanceResponse>();
+        return ApiResult<IReadOnlyList<LedgerImbalanceResponse>>.Success(imbalances);
+    }
+
     public async Task<ApiResult<WebhookEventPageResponse>> ListWebhookEventsAsync(int pageNumber, int pageSize)
     {
         var response = await HttpCall.TrySendAsync(
@@ -79,5 +99,134 @@ public sealed class AdminApiClient
         var page = await response.Content.ReadFromJsonAsync<WebhookEventPageResponse>()
             ?? throw new InvalidOperationException("Webhook events request succeeded but the response body was empty.");
         return ApiResult<WebhookEventPageResponse>.Success(page);
+    }
+
+    public async Task<ApiResult<SecurityAuditEventPageResponse>> ListSecurityEventsAsync(int pageNumber, int pageSize)
+    {
+        var response = await HttpCall.TrySendAsync(
+            () => _http.GetAsync($"api/v1/admin/security-events?pageNumber={pageNumber}&pageSize={pageSize}"));
+        if (response is null)
+            return ApiResult<SecurityAuditEventPageResponse>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<SecurityAuditEventPageResponse>.Failed(code, message);
+        }
+
+        var page = await response.Content.ReadFromJsonAsync<SecurityAuditEventPageResponse>()
+            ?? throw new InvalidOperationException("Security events request succeeded but the response body was empty.");
+        return ApiResult<SecurityAuditEventPageResponse>.Success(page);
+    }
+
+    public async Task<ApiResult<IReadOnlyList<PendingRegistrationResponse>>> ListPendingRegistrationsAsync()
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync("api/v1/admin/registrations/pending"));
+        if (response is null)
+            return ApiResult<IReadOnlyList<PendingRegistrationResponse>>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<IReadOnlyList<PendingRegistrationResponse>>.Failed(code, message);
+        }
+
+        var pending = await response.Content.ReadFromJsonAsync<List<PendingRegistrationResponse>>()
+            ?? new List<PendingRegistrationResponse>();
+        return ApiResult<IReadOnlyList<PendingRegistrationResponse>>.Success(pending);
+    }
+
+    public async Task<ApiResult> ApproveRegistrationAsync(Guid userId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsync($"api/v1/admin/registrations/{userId}/approve", null));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
+    public async Task<ApiResult> RejectRegistrationAsync(Guid userId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsync($"api/v1/admin/registrations/{userId}/reject", null));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
+    public async Task<ApiResult<WalletBalanceResponse>> GetWalletBalanceAsync(Guid walletId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync($"api/v1/admin/wallets/{walletId}/balance"));
+        if (response is null)
+            return ApiResult<WalletBalanceResponse>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<WalletBalanceResponse>.Failed(code, message);
+        }
+
+        var balance = await response.Content.ReadFromJsonAsync<WalletBalanceResponse>()
+            ?? throw new InvalidOperationException("Wallet balance request succeeded but the response body was empty.");
+        return ApiResult<WalletBalanceResponse>.Success(balance);
+    }
+
+    public async Task<ApiResult<ManualTransferResponse>> PostManualTransferAsync(ManualTransferRequest request, string idempotencyKey)
+    {
+        var response = await HttpCall.TrySendAsync(async () =>
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, "api/v1/admin/manual-transfer")
+            {
+                Content = JsonContent.Create(request),
+            };
+            message.Headers.Add("Idempotency-Key", idempotencyKey);
+
+            return await _http.SendAsync(message);
+        });
+        if (response is null)
+            return ApiResult<ManualTransferResponse>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<ManualTransferResponse>.Failed(code, message);
+        }
+
+        var transfer = await response.Content.ReadFromJsonAsync<ManualTransferResponse>()
+            ?? throw new InvalidOperationException("Manual transfer posted but the response body was empty.");
+        return ApiResult<ManualTransferResponse>.Success(transfer);
+    }
+
+    public async Task<ApiResult<KycDocumentFile>> GetKycDocumentAsync(Guid userId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync($"api/v1/admin/registrations/{userId}/document"));
+        if (response is null)
+            return ApiResult<KycDocumentFile>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<KycDocumentFile>.Failed(code, message);
+        }
+
+        var bytes = await response.Content.ReadAsByteArrayAsync();
+        var contentType = response.Content.Headers.ContentType?.MediaType ?? "application/octet-stream";
+        var fileName = response.Content.Headers.ContentDisposition?.FileNameStar
+            ?? response.Content.Headers.ContentDisposition?.FileName
+            ?? "document.pdf";
+
+        return ApiResult<KycDocumentFile>.Success(new KycDocumentFile(bytes, contentType, fileName.Trim('"')));
     }
 }

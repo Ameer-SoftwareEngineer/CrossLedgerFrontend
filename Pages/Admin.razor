@@ -2,6 +2,7 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject AdminApiClient AdminApiClient
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Admin console - CrossLedger</PageTitle>
 
@@ -12,6 +13,51 @@
 </MudText>
 
 <MudTabs Elevation="1" Rounded="true" PanelClass="pa-4" ApplyEffectsToContainer="true">
+    <MudTabPanel Text="@PendingTabText">
+        @if (_isLoadingPending)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_pendingError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_pendingError</MudAlert>
+        }
+        else if (_pendingRegistrations.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No registrations waiting for review.</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Country</th>
+                        <th>Submitted</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var registration in _pendingRegistrations)
+                    {
+                        <tr>
+                            <td>@registration.FullName</td>
+                            <td>@registration.Email</td>
+                            <td>@registration.Country</td>
+                            <td>@registration.SubmittedAt.ToLocalTime().ToString("g")</td>
+                            <td>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => ReviewAsync(registration))">
+                                    Review
+                                </MudButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudTabPanel>
+
     <MudTabPanel Text="Users">
         @if (_isLoadingUsers)
         {
@@ -116,10 +162,171 @@
             </PagerContent>
         </MudTable>
     </MudTabPanel>
+
+    <MudTabPanel Text="Security events">
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Every login, 2FA challenge, step-up token request and 2FA disable - success and failure alike - with the
+            caller's IP and user agent (specification 6.4's full audit trail).
+        </MudText>
+        <MudTable @ref="_securityEventsTable" ServerData="LoadSecurityEventsAsync" Dense="true">
+            <HeaderContent>
+                <MudTh>When</MudTh>
+                <MudTh>Event</MudTh>
+                <MudTh>Outcome</MudTh>
+                <MudTh>Subject</MudTh>
+                <MudTh>IP address</MudTh>
+                <MudTh>User agent</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="When">@context.OccurredAt.ToLocalTime().ToString("g")</MudTd>
+                <MudTd DataLabel="Event">@context.EventType</MudTd>
+                <MudTd DataLabel="Outcome">
+                    <MudChip T="string" Color="@(context.Succeeded ? Color.Success : Color.Error)" Size="Size.Small">
+                        @(context.Succeeded ? "Succeeded" : context.FailureReason ?? "Failed")
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Subject">@context.Subject</MudTd>
+                <MudTd DataLabel="IP address">@(context.IpAddress ?? "-")</MudTd>
+                <MudTd DataLabel="User agent">@(context.UserAgent ?? "-")</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText>No security events recorded yet.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+            </PagerContent>
+        </MudTable>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Ledger reconciliation">
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Specification 2.1's double-entry invariant: every currency's ledger entries must sum to exactly zero.
+            A background job also runs this automatically every 24 hours and logs any imbalance as an incident -
+            use this button to check on demand instead of waiting for the next scheduled run.
+        </MudText>
+        <MudButton Variant="Variant.Outlined" OnClick="RunReconciliationAsync" Disabled="_isReconciling" Class="mb-4">
+            @(_isReconciling ? "Checking..." : "Run integrity check")
+        </MudButton>
+
+        @if (_reconciliationError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_reconciliationError</MudAlert>
+        }
+        else if (_imbalances is not null)
+        {
+            @if (_imbalances.Count == 0)
+            {
+                <MudAlert Severity="Severity.Success">Ledger is balanced - every currency sums to zero.</MudAlert>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">
+                    @_imbalances.Count currenc@(_imbalances.Count == 1 ? "y is" : "ies are") out of balance.
+                </MudAlert>
+                <MudSimpleTable Dense="true">
+                    <thead>
+                        <tr>
+                            <th>Currency</th>
+                            <th style="text-align: right;">Net amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var imbalance in _imbalances)
+                        {
+                            <tr>
+                                <td>@imbalance.CurrencyCode</td>
+                                <td style="text-align: right;">@imbalance.NetAmount</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Manual transfer">
+        <MudText Typo="Typo.body2" Class="mb-4">
+            An admin-only direct transfer between two wallets, posted through dbo.usp_PostTransfer rather than a
+            Quote - for support/ops corrections. The regular customer transfer flow is unaffected.
+        </MudText>
+
+        <MudPaper Class="pa-6" Style="max-width: 560px;" Elevation="2">
+            <MudGrid>
+                <MudItem xs="9">
+                    <MudTextField T="string" @bind-Value="_sourceWalletIdText" Label="Source wallet ID" />
+                </MudItem>
+                <MudItem xs="3" Class="d-flex align-center">
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" FullWidth="true"
+                               OnClick="@(() => LookUpBalanceAsync(isSource: true))" Disabled="_isLookingUpSource">
+                        Look up
+                    </MudButton>
+                </MudItem>
+                @if (_sourceBalance is not null)
+                {
+                    <MudItem xs="12" Class="mt-n3">
+                        <MudText Typo="Typo.caption" Class="cl-dash-subtitle">
+                            @SupportedCurrencies.Format(_sourceBalance.Balance, _sourceBalance.Currency) @_sourceBalance.Currency
+                        </MudText>
+                    </MudItem>
+                }
+
+                <MudItem xs="9" Class="mt-2">
+                    <MudTextField T="string" @bind-Value="_targetWalletIdText" Label="Target wallet ID" />
+                </MudItem>
+                <MudItem xs="3" Class="d-flex align-center mt-2">
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small" FullWidth="true"
+                               OnClick="@(() => LookUpBalanceAsync(isSource: false))" Disabled="_isLookingUpTarget">
+                        Look up
+                    </MudButton>
+                </MudItem>
+                @if (_targetBalance is not null)
+                {
+                    <MudItem xs="12" Class="mt-n3">
+                        <MudText Typo="Typo.caption" Class="cl-dash-subtitle">
+                            @SupportedCurrencies.Format(_targetBalance.Balance, _targetBalance.Currency) @_targetBalance.Currency
+                        </MudText>
+                    </MudItem>
+                }
+
+                <MudItem xs="6" Class="mt-2">
+                    <MudNumericField T="decimal" @bind-Value="_sourceAmount" Label="Source amount" Min="0.01m" />
+                </MudItem>
+                <MudItem xs="6" Class="mt-2">
+                    <MudNumericField T="decimal" @bind-Value="_targetAmount" Label="Target amount" Min="0.01m" />
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.caption" Class="cl-dash-subtitle mt-3">
+                Use equal amounts for a same-currency move. Different amounts post a manual, admin-set cross-currency rate.
+            </MudText>
+
+            @if (_manualTransferError is not null)
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-4">@_manualTransferError</MudAlert>
+            }
+            @if (_lastManualTransfer is not null)
+            {
+                <MudAlert Severity="Severity.Success" Class="mt-4">
+                    Posted transfer @_lastManualTransfer.TransferId at @_lastManualTransfer.PostedAt.ToLocalTime().ToString("g").
+                </MudAlert>
+            }
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-4"
+                       OnClick="PostManualTransferAsync" Disabled="_isPostingManualTransfer">
+                @(_isPostingManualTransfer ? "Posting..." : "Post transfer")
+            </MudButton>
+        </MudPaper>
+    </MudTabPanel>
 </MudTabs>
 
 @code {
     private static readonly string[] AllRoles = ["Customer", "Support", "Admin"];
+
+    private List<PendingRegistrationResponse> _pendingRegistrations = new();
+    private bool _isLoadingPending = true;
+    private string? _pendingError;
+
+    private string PendingTabText => _pendingRegistrations.Count == 0 ? "Pending registrations" : $"Pending registrations ({_pendingRegistrations.Count})";
 
     private List<UserSummaryResponse> _users = new();
     private readonly Dictionary<Guid, HashSet<string>> _editedRoles = new();
@@ -132,11 +339,62 @@
     private string? _healthError;
 
     private MudTable<WebhookEventResponse> _webhookTable = null!;
+    private MudTable<SecurityAuditEventResponse> _securityEventsTable = null!;
+
+    private List<LedgerImbalanceResponse>? _imbalances;
+    private bool _isReconciling;
+    private string? _reconciliationError;
+
+    private string _sourceWalletIdText = string.Empty;
+    private string _targetWalletIdText = string.Empty;
+    private decimal _sourceAmount = 1m;
+    private decimal _targetAmount = 1m;
+    private WalletBalanceResponse? _sourceBalance;
+    private WalletBalanceResponse? _targetBalance;
+    private bool _isLookingUpSource;
+    private bool _isLookingUpTarget;
+    private bool _isPostingManualTransfer;
+    private string? _manualTransferError;
+    private ManualTransferResponse? _lastManualTransfer;
+    private string _manualTransferIdempotencyKey = Guid.NewGuid().ToString();
 
     protected override async Task OnInitializedAsync()
     {
+        await LoadPendingRegistrationsAsync();
         await LoadUsersAsync();
         await LoadProviderHealthAsync();
+    }
+
+    private async Task LoadPendingRegistrationsAsync()
+    {
+        _isLoadingPending = true;
+        _pendingError = null;
+
+        var result = await AdminApiClient.ListPendingRegistrationsAsync();
+
+        _isLoadingPending = false;
+
+        if (!result.IsSuccess)
+        {
+            _pendingError = result.ErrorMessage;
+            return;
+        }
+
+        _pendingRegistrations = result.Value!.OrderBy(r => r.SubmittedAt).ToList();
+    }
+
+    private async Task ReviewAsync(PendingRegistrationResponse registration)
+    {
+        var parameters = new DialogParameters<KycReviewDialog> { { x => x.Registration, registration } };
+        var dialog = await DialogService.ShowAsync<KycReviewDialog>("Review registration", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            Snackbar.Add($"{registration.FullName}'s registration was reviewed.", Severity.Success);
+            await LoadPendingRegistrationsAsync();
+            await LoadUsersAsync();
+        }
     }
 
     private async Task LoadUsersAsync()
@@ -215,6 +473,91 @@
         }
 
         return new TableData<WebhookEventResponse> { Items = result.Value!.Entries, TotalItems = result.Value.TotalCount };
+    }
+
+    private async Task<TableData<SecurityAuditEventResponse>> LoadSecurityEventsAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await AdminApiClient.ListSecurityEventsAsync(state.Page + 1, state.PageSize);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Failed to load security events.", Severity.Error);
+            return new TableData<SecurityAuditEventResponse> { Items = Array.Empty<SecurityAuditEventResponse>(), TotalItems = 0 };
+        }
+
+        return new TableData<SecurityAuditEventResponse> { Items = result.Value!.Entries, TotalItems = result.Value.TotalCount };
+    }
+
+    private async Task RunReconciliationAsync()
+    {
+        _isReconciling = true;
+        _reconciliationError = null;
+
+        var result = await AdminApiClient.ReconcileLedgerAsync();
+
+        _isReconciling = false;
+
+        if (!result.IsSuccess)
+        {
+            _reconciliationError = result.ErrorMessage;
+            return;
+        }
+
+        _imbalances = result.Value!.ToList();
+    }
+
+    private async Task LookUpBalanceAsync(bool isSource)
+    {
+        var text = isSource ? _sourceWalletIdText : _targetWalletIdText;
+        if (!Guid.TryParse(text, out var walletId))
+        {
+            Snackbar.Add("Enter a valid wallet ID (GUID) first.", Severity.Warning);
+            return;
+        }
+
+        if (isSource) _isLookingUpSource = true; else _isLookingUpTarget = true;
+
+        var result = await AdminApiClient.GetWalletBalanceAsync(walletId);
+
+        if (isSource) _isLookingUpSource = false; else _isLookingUpTarget = false;
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Wallet not found.", Severity.Error);
+            return;
+        }
+
+        if (isSource) _sourceBalance = result.Value; else _targetBalance = result.Value;
+    }
+
+    private async Task PostManualTransferAsync()
+    {
+        _manualTransferError = null;
+
+        if (!Guid.TryParse(_sourceWalletIdText, out var sourceWalletId) || !Guid.TryParse(_targetWalletIdText, out var targetWalletId))
+        {
+            _manualTransferError = "Both wallet IDs must be valid GUIDs.";
+            return;
+        }
+
+        _isPostingManualTransfer = true;
+
+        var request = new ManualTransferRequest(sourceWalletId, targetWalletId, _sourceAmount, _targetAmount);
+        var result = await AdminApiClient.PostManualTransferAsync(request, _manualTransferIdempotencyKey);
+
+        _isPostingManualTransfer = false;
+
+        if (!result.IsSuccess)
+        {
+            _manualTransferError = result.ErrorMessage;
+            return;
+        }
+
+        _lastManualTransfer = result.Value;
+        _manualTransferIdempotencyKey = Guid.NewGuid().ToString();
+        _sourceBalance = null;
+        _targetBalance = null;
+        Snackbar.Add("Manual transfer posted.", Severity.Success);
     }
 
     private static Color StatusColor(string status) => status switch

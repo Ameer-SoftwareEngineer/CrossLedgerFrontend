@@ -1,0 +1,226 @@
+@page "/cards/new"
+@attribute [Authorize]
+@inject CardApiClient CardApiClient
+@inject ProfileApiClient ProfileApiClient
+@inject NavigationManager Navigation
+
+<PageTitle>Add New Card - CrossLedger</PageTitle>
+
+<MudText Typo="Typo.h4" GutterBottom="true">Add New Card</MudText>
+<MudText Typo="Typo.body2" Class="mb-4" Style="max-width: 640px;">
+    You can order a prepaid card to make transactions online and in store for goods and services. You can top this
+    card up from your other wallets.
+</MudText>
+
+@if (_isLoadingProfile)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else
+{
+    <MudForm @ref="_form" Model="_model" Style="max-width: 640px;">
+        <MudText Typo="Typo.subtitle1" Class="mb-2">Card Type</MudText>
+        <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Class="mb-4">
+            <MudButton Variant="@(_model.CardType == "Physical" ? Variant.Filled : Variant.Outlined)" OnClick="@(() => _model.CardType = "Physical")">Physical</MudButton>
+            <MudButton Variant="@(_model.CardType == "Virtual" ? Variant.Filled : Variant.Outlined)" OnClick="@(() => _model.CardType = "Virtual")">Virtual</MudButton>
+        </MudButtonGroup>
+
+        <MudGrid>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.CardholderName" Label="Cardholder name" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect T="string" @bind-Value="_model.Currency" Label="Currency" Required="true">
+                    @foreach (var currency in SupportedCurrencies.All)
+                    {
+                        <MudSelectItem T="string" Value="@currency">@currency</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudSelect T="string" @bind-Value="_model.SourceOfFunds" Label="Source of Funds" Required="true" Class="mt-4">
+            @foreach (var option in SourceOfFundsOptions)
+            {
+                <MudSelectItem T="string" Value="@option">@option</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudGrid Class="mt-0">
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="decimal" @bind-Value="_model.EstimatedGrossAnnualIncome" Label="Estimated Gross Annual Income" Min="0m" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField T="decimal" @bind-Value="_model.EstimatedNetWorth" Label="Estimated Net Worth" Min="0m" />
+            </MudItem>
+        </MudGrid>
+
+        <MudCheckBox T="bool" @bind-Value="_model.IsActivelyEmployed" Label="Actively Employed" Class="mt-2" />
+
+        <MudGrid Class="mt-0">
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.EmployerCompanyName" Label="Employer Company Name" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.JobTitle" Label="Job Title" />
+            </MudItem>
+        </MudGrid>
+
+        <MudText Typo="Typo.subtitle1" Class="mt-6 mb-2">Registered Address</MudText>
+        <MudTextField @bind-Value="_model.RegisteredStreet" Label="Street" Required="true" />
+        <MudGrid Class="mt-0">
+            <MudItem xs="6" sm="3">
+                <MudTextField @bind-Value="_model.RegisteredNumber" Label="Number" />
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudTextField @bind-Value="_model.RegisteredState" Label="State" Required="true" />
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudTextField @bind-Value="_model.RegisteredPostcode" Label="Postcode" Required="true" />
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudTextField @bind-Value="_model.RegisteredCity" Label="City" Required="true" />
+            </MudItem>
+        </MudGrid>
+        <MudSelect T="string" @bind-Value="_model.RegisteredCountry" Label="Country" Required="true" Class="mt-4">
+            @foreach (var country in Countries.All)
+            {
+                <MudSelectItem T="string" Value="@country">@country</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudCheckBox T="bool" @bind-Value="_sameAsRegistered" Label="Same As Registered Address" Class="mt-4" />
+
+        @if (!_sameAsRegistered)
+        {
+            <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2">Shipping Address</MudText>
+            <MudTextField @bind-Value="_model.ShippingStreet" Label="Street" Required="true" />
+            <MudGrid Class="mt-0">
+                <MudItem xs="6" sm="3">
+                    <MudTextField @bind-Value="_model.ShippingNumber" Label="Number" />
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudTextField @bind-Value="_model.ShippingState" Label="State" Required="true" />
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudTextField @bind-Value="_model.ShippingPostcode" Label="Postcode" Required="true" />
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudTextField @bind-Value="_model.ShippingCity" Label="City" Required="true" />
+                </MudItem>
+            </MudGrid>
+            <MudSelect T="string" @bind-Value="_model.ShippingCountry" Label="Country" Required="true" Class="mt-4">
+                @foreach (var country in Countries.All)
+                {
+                    <MudSelectItem T="string" Value="@country">@country</MudSelectItem>
+                }
+            </MudSelect>
+        }
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6"
+                   OnClick="SubmitAsync" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Submitting..." : "Continue")
+        </MudButton>
+    </MudForm>
+}
+
+@code {
+    private static readonly string[] SourceOfFundsOptions = ["Salary", "Savings", "SelfEmployed", "LoansOrBorrowedFunds"];
+
+    private bool _isLoadingProfile = true;
+    private MudForm _form = null!;
+    private readonly CardModel _model = new();
+    private bool _sameAsRegistered = true;
+    private bool _isSubmitting;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await ProfileApiClient.GetMyProfileAsync();
+        _isLoadingProfile = false;
+
+        if (result.IsSuccess)
+        {
+            var profile = result.Value!;
+            _model.CardholderName = string.IsNullOrWhiteSpace(profile.MiddleName)
+                ? $"{profile.FirstName} {profile.LastName}"
+                : $"{profile.FirstName} {profile.MiddleName} {profile.LastName}";
+            _model.RegisteredStreet = profile.Address;
+            _model.RegisteredCity = profile.City;
+            _model.RegisteredState = profile.StateProvince;
+            _model.RegisteredCountry = Countries.All.Contains(profile.Country) ? profile.Country : string.Empty;
+        }
+
+        if (string.IsNullOrEmpty(_model.Currency))
+            _model.Currency = SupportedCurrencies.All.First();
+    }
+
+    private async Task SubmitAsync()
+    {
+        await _form.Validate();
+        if (!_form.IsValid)
+            return;
+
+        _isSubmitting = true;
+        _error = null;
+
+        var registeredAddress = new CardAddressDto(
+            _model.RegisteredStreet, _model.RegisteredNumber, _model.RegisteredState,
+            _model.RegisteredPostcode, _model.RegisteredCity, _model.RegisteredCountry);
+
+        var shippingAddress = _sameAsRegistered ? null : new CardAddressDto(
+            _model.ShippingStreet, _model.ShippingNumber, _model.ShippingState,
+            _model.ShippingPostcode, _model.ShippingCity, _model.ShippingCountry);
+
+        var request = new IssueCardRequest(
+            _model.Currency, _model.CardType, _model.CardholderName, _model.SourceOfFunds,
+            _model.EstimatedGrossAnnualIncome, _model.EstimatedNetWorth, _model.IsActivelyEmployed,
+            string.IsNullOrWhiteSpace(_model.EmployerCompanyName) ? null : _model.EmployerCompanyName,
+            string.IsNullOrWhiteSpace(_model.JobTitle) ? null : _model.JobTitle,
+            registeredAddress, shippingAddress);
+
+        var result = await CardApiClient.IssueAsync(request);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        Navigation.NavigateTo($"/cards/{result.Value!.CardId}");
+    }
+
+    private sealed class CardModel
+    {
+        public string CardType { get; set; } = "Virtual";
+        public string Currency { get; set; } = string.Empty;
+        public string CardholderName { get; set; } = string.Empty;
+        public string SourceOfFunds { get; set; } = "Salary";
+        public decimal EstimatedGrossAnnualIncome { get; set; }
+        public decimal EstimatedNetWorth { get; set; }
+        public bool IsActivelyEmployed { get; set; }
+        public string EmployerCompanyName { get; set; } = string.Empty;
+        public string JobTitle { get; set; } = string.Empty;
+
+        public string RegisteredStreet { get; set; } = string.Empty;
+        public string RegisteredNumber { get; set; } = string.Empty;
+        public string RegisteredState { get; set; } = string.Empty;
+        public string RegisteredPostcode { get; set; } = string.Empty;
+        public string RegisteredCity { get; set; } = string.Empty;
+        public string RegisteredCountry { get; set; } = string.Empty;
+
+        public string ShippingStreet { get; set; } = string.Empty;
+        public string ShippingNumber { get; set; } = string.Empty;
+        public string ShippingState { get; set; } = string.Empty;
+        public string ShippingPostcode { get; set; } = string.Empty;
+        public string ShippingCity { get; set; } = string.Empty;
+        public string ShippingCountry { get; set; } = string.Empty;
+    }
+}
