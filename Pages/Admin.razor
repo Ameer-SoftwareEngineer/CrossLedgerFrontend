@@ -201,7 +201,8 @@
     <MudTabPanel Text="Ledger reconciliation">
         <MudText Typo="Typo.body2" Class="mb-4">
             Specification 2.1's double-entry invariant: every currency's ledger entries must sum to exactly zero.
-            Runs dbo.usp_ReconcileLedger on demand - there's no scheduled nightly job wired up yet.
+            A background job also runs this automatically every 24 hours and logs any imbalance as an incident -
+            use this button to check on demand instead of waiting for the next scheduled run.
         </MudText>
         <MudButton Variant="Variant.Outlined" OnClick="RunReconciliationAsync" Disabled="_isReconciling" Class="mb-4">
             @(_isReconciling ? "Checking..." : "Run integrity check")
