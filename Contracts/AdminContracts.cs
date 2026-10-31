@@ -10,6 +10,11 @@ public sealed record WebhookEventResponse(string ProviderCode, string EventId, D
 
 public sealed record WebhookEventPageResponse(IReadOnlyList<WebhookEventResponse> Entries, int TotalCount, int PageNumber, int PageSize);
 
+public sealed record WebhookDeliveryResponse(
+    string EventType, string SubscriberUrl, bool Succeeded, int? ResponseStatusCode, int AttemptCount, DateTimeOffset AttemptedAt);
+
+public sealed record WebhookDeliveryPageResponse(IReadOnlyList<WebhookDeliveryResponse> Entries, int TotalCount, int PageNumber, int PageSize);
+
 public sealed record SecurityAuditEventResponse(
     Guid? UserId,
     string Subject,

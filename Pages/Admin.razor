@@ -141,7 +141,8 @@
     <MudTabPanel Text="Webhook events">
         <MudText Typo="Typo.body2" Class="mb-4">
             Inbound provider notifications CrossLedger has already processed and deduplicated (specification 5.4) -
-            not an outbound delivery log, which this codebase has no subscriber concept for yet.
+            see the Webhook deliveries tab for the outbound side, CrossLedger's own notifications to its configured
+            subscriber.
         </MudText>
         <MudTable @ref="_webhookTable" ServerData="LoadWebhookEventsAsync" Dense="true">
             <HeaderContent>
@@ -156,6 +157,42 @@
             </RowTemplate>
             <NoRecordsContent>
                 <MudText>No webhook events recorded yet.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+            </PagerContent>
+        </MudTable>
+    </MudTabPanel>
+
+    <MudTabPanel Text="Webhook deliveries">
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Outbound notifications CrossLedger sent to its configured subscriber (specification 2.6) - HMAC-signed,
+            retried with exponential backoff. Empty until Webhooks:SubscriberUrl is configured; until then every
+            payout settlement/reversal is a no-op here by design, not a failure.
+        </MudText>
+        <MudTable @ref="_webhookDeliveryTable" ServerData="LoadWebhookDeliveriesAsync" Dense="true">
+            <HeaderContent>
+                <MudTh>Event</MudTh>
+                <MudTh>Subscriber URL</MudTh>
+                <MudTh>Succeeded</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh>Attempts</MudTh>
+                <MudTh>Attempted at</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Event">@context.EventType</MudTd>
+                <MudTd DataLabel="Subscriber URL">@context.SubscriberUrl</MudTd>
+                <MudTd DataLabel="Succeeded">
+                    <MudChip T="string" Color="@(context.Succeeded ? Color.Success : Color.Error)" Size="Size.Small">
+                        @(context.Succeeded ? "Delivered" : "Failed")
+                    </MudChip>
+                </MudTd>
+                <MudTd DataLabel="Status">@(context.ResponseStatusCode?.ToString() ?? "-")</MudTd>
+                <MudTd DataLabel="Attempts">@context.AttemptCount</MudTd>
+                <MudTd DataLabel="Attempted at">@context.AttemptedAt.ToLocalTime().ToString("g")</MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText>No webhook deliveries recorded yet.</MudText>
             </NoRecordsContent>
             <PagerContent>
                 <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
@@ -339,6 +376,7 @@
     private string? _healthError;
 
     private MudTable<WebhookEventResponse> _webhookTable = null!;
+    private MudTable<WebhookDeliveryResponse> _webhookDeliveryTable = null!;
     private MudTable<SecurityAuditEventResponse> _securityEventsTable = null!;
 
     private List<LedgerImbalanceResponse>? _imbalances;
@@ -473,6 +511,19 @@
         }
 
         return new TableData<WebhookEventResponse> { Items = result.Value!.Entries, TotalItems = result.Value.TotalCount };
+    }
+
+    private async Task<TableData<WebhookDeliveryResponse>> LoadWebhookDeliveriesAsync(TableState state, CancellationToken cancellationToken)
+    {
+        var result = await AdminApiClient.ListWebhookDeliveriesAsync(state.Page + 1, state.PageSize);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Failed to load webhook deliveries.", Severity.Error);
+            return new TableData<WebhookDeliveryResponse> { Items = Array.Empty<WebhookDeliveryResponse>(), TotalItems = 0 };
+        }
+
+        return new TableData<WebhookDeliveryResponse> { Items = result.Value!.Entries, TotalItems = result.Value.TotalCount };
     }
 
     private async Task<TableData<SecurityAuditEventResponse>> LoadSecurityEventsAsync(TableState state, CancellationToken cancellationToken)
