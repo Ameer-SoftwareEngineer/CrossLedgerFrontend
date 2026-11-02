@@ -41,7 +41,7 @@ else
                     </div>
                     <div class="text-right">
                         <MudText Typo="Typo.subtitle2">@SupportedCurrencies.Format(card.Balance, card.Currency) @card.Currency</MudText>
-                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(card.Status)">@card.Status</MudChip>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(card.Status)">@StatusText(card.Status)</MudChip>
                     </div>
                 </MudPaper>
                 <MudDivider />
@@ -77,7 +77,11 @@ else
     {
         "Active" => Color.Success,
         "Frozen" => Color.Info,
+        "PendingApproval" => Color.Warning,
         "Closed" => Color.Default,
+        "Rejected" => Color.Error,
         _ => Color.Default,
     };
+
+    private static string StatusText(string status) => status == "PendingApproval" ? "Pending approval" : status;
 }

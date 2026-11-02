@@ -1,0 +1,80 @@
+@inject AdminApiClient AdminApiClient
+
+<MudDialog>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Cardholder</MudText><MudText>@Request.CardholderName</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Requested by</MudText><MudText>@Request.OwnerEmail</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Card type / currency</MudText><MudText>@Request.CardType - @Request.Currency</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Source of funds</MudText><MudText>@Request.SourceOfFunds</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Estimated gross annual income</MudText><MudText>@Request.EstimatedGrossAnnualIncome.ToString("N2")</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Estimated net worth</MudText><MudText>@Request.EstimatedNetWorth.ToString("N2")</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Employment</MudText><MudText>@(Request.IsActivelyEmployed ? $"{Request.JobTitle} at {Request.EmployerCompanyName}" : "Not actively employed")</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Requested</MudText><MudText>@Request.RequestedAt.ToLocalTime().ToString("g")</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Registered address</MudText><MudText>@FormatAddress(Request.RegisteredAddress)</MudText></MudItem>
+            <MudItem xs="12" sm="6"><MudText Typo="Typo.caption" Class="cl-dash-subtitle">Shipping address</MudText><MudText>@FormatAddress(Request.ShippingAddress)</MudText></MudItem>
+        </MudGrid>
+
+        @if (_actionError is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_actionError</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Close</MudButton>
+        <MudButton Color="Color.Error" Variant="Variant.Outlined" OnClick="RejectAsync" Disabled="_isSubmitting">Reject</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="ApproveAsync" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Working..." : "Approve")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public PendingCardRequestResponse Request { get; set; } = null!;
+
+    private string? _actionError;
+    private bool _isSubmitting;
+
+    private static string FormatAddress(CardAddressDto address) =>
+        $"{address.Street} {address.Number}, {address.City}, {address.State} {address.Postcode}, {address.Country}";
+
+    private async Task ApproveAsync()
+    {
+        _isSubmitting = true;
+        _actionError = null;
+
+        var result = await AdminApiClient.ApproveCardRequestAsync(Request.CardId);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _actionError = result.ErrorMessage;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private async Task RejectAsync()
+    {
+        _isSubmitting = true;
+        _actionError = null;
+
+        var result = await AdminApiClient.RejectCardRequestAsync(Request.CardId);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _actionError = result.ErrorMessage;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

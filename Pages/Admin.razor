@@ -58,6 +58,53 @@
         }
     </MudTabPanel>
 
+    <MudTabPanel Text="@CardRequestsTabText">
+        @if (_isLoadingCardRequests)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_cardRequestsError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_cardRequestsError</MudAlert>
+        }
+        else if (_pendingCardRequests.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No card requests waiting for review.</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Cardholder</th>
+                        <th>Requested by</th>
+                        <th>Type</th>
+                        <th>Currency</th>
+                        <th>Requested</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var request in _pendingCardRequests)
+                    {
+                        <tr>
+                            <td>@request.CardholderName</td>
+                            <td>@request.OwnerEmail</td>
+                            <td>@request.CardType</td>
+                            <td>@request.Currency</td>
+                            <td>@request.RequestedAt.ToLocalTime().ToString("g")</td>
+                            <td>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => ReviewCardRequestAsync(request))">
+                                    Review
+                                </MudButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudTabPanel>
+
     <MudTabPanel Text="Users">
         @if (_isLoadingUsers)
         {
@@ -365,6 +412,12 @@
 
     private string PendingTabText => _pendingRegistrations.Count == 0 ? "Pending registrations" : $"Pending registrations ({_pendingRegistrations.Count})";
 
+    private List<PendingCardRequestResponse> _pendingCardRequests = new();
+    private bool _isLoadingCardRequests = true;
+    private string? _cardRequestsError;
+
+    private string CardRequestsTabText => _pendingCardRequests.Count == 0 ? "Card requests" : $"Card requests ({_pendingCardRequests.Count})";
+
     private List<UserSummaryResponse> _users = new();
     private readonly Dictionary<Guid, HashSet<string>> _editedRoles = new();
     private bool _isLoadingUsers = true;
@@ -399,6 +452,7 @@
     protected override async Task OnInitializedAsync()
     {
         await LoadPendingRegistrationsAsync();
+        await LoadPendingCardRequestsAsync();
         await LoadUsersAsync();
         await LoadProviderHealthAsync();
     }
@@ -432,6 +486,37 @@
             Snackbar.Add($"{registration.FullName}'s registration was reviewed.", Severity.Success);
             await LoadPendingRegistrationsAsync();
             await LoadUsersAsync();
+        }
+    }
+
+    private async Task LoadPendingCardRequestsAsync()
+    {
+        _isLoadingCardRequests = true;
+        _cardRequestsError = null;
+
+        var result = await AdminApiClient.ListPendingCardRequestsAsync();
+
+        _isLoadingCardRequests = false;
+
+        if (!result.IsSuccess)
+        {
+            _cardRequestsError = result.ErrorMessage;
+            return;
+        }
+
+        _pendingCardRequests = result.Value!.OrderBy(r => r.RequestedAt).ToList();
+    }
+
+    private async Task ReviewCardRequestAsync(PendingCardRequestResponse request)
+    {
+        var parameters = new DialogParameters<CardRequestReviewDialog> { { x => x.Request, request } };
+        var dialog = await DialogService.ShowAsync<CardRequestReviewDialog>("Review card request", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            Snackbar.Add($"{request.CardholderName}'s card request was reviewed.", Severity.Success);
+            await LoadPendingCardRequestsAsync();
         }
     }
 

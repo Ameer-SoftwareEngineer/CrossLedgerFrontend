@@ -21,12 +21,23 @@ else
     <div class="d-flex align-center mb-1">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Href="/cards" Class="mr-1" />
         <MudText Typo="Typo.h4">@_card.CardholderName</MudText>
-        <MudChip T="string" Size="Size.Small" Color="@StatusColor(_card.Status)" Class="ml-3">@_card.Status</MudChip>
+        <MudChip T="string" Size="Size.Small" Color="@StatusColor(_card.Status)" Class="ml-3">@StatusText(_card.Status)</MudChip>
     </div>
     <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
         @(_card.CardType == "Virtual" ? "Virtual card" : "Physical card") · XXXX XXXX XXXX @_card.Last4 ·
         Balance @SupportedCurrencies.Format(_card.Balance, _card.Currency) @_card.Currency
     </MudText>
+
+    @if (_card.Status == "PendingApproval")
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4">
+            This card is awaiting admin review (specification 9) - it can't be funded, frozen or spent from until approved.
+        </MudAlert>
+    }
+    else if (_card.Status == "Rejected")
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">This card request was rejected and can never be used.</MudAlert>
+    }
 
     @if (_error is not null)
     {
@@ -78,7 +89,11 @@ else
 
         <MudTabPanel Text="Top Up">
             <div class="pa-4" style="max-width: 420px;">
-                @if (_wallets.Count == 0)
+                @if (_card.Status is not ("Active" or "Frozen"))
+                {
+                    <MudText Typo="Typo.body2" Class="cl-dash-subtitle">This card can't be topped up yet - see the status above.</MudText>
+                }
+                else if (_wallets.Count == 0)
                 {
                     <MudText Typo="Typo.body2" Class="cl-dash-subtitle">You don't have any wallets to top up from yet.</MudText>
                 }
@@ -123,7 +138,7 @@ else
                 </div>
 
                 <MudStack Style="max-width: 340px; width: 100%;" Class="mt-4" Spacing="2">
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="ToggleRevealAsync" Disabled="@(_card.Status == "Closed" || _isBusy)">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="ToggleRevealAsync" Disabled="@(_card.Status is not ("Active" or "Frozen") || _isBusy)">
                         @(_revealed is null ? "Show card number" : "Hide card number")
                     </MudButton>
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true" OnClick="@(() => _showCvc = !_showCvc)" Disabled="@(_revealed is null)">
@@ -145,7 +160,7 @@ else
 
                     <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
                         <MudNumericField T="decimal?" @bind-Value="_limitInput" Label="Max per purchase" Clearable="true" />
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveLimitAsync" Disabled="@(_card.Status == "Closed" || _isBusy)">Save</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveLimitAsync" Disabled="@(_card.Status is not ("Active" or "Frozen") || _isBusy)">Save</MudButton>
                     </MudStack>
 
                     @if (_card.Status != "Closed")
@@ -421,7 +436,11 @@ else
     {
         "Active" => Color.Success,
         "Frozen" => Color.Info,
+        "PendingApproval" => Color.Warning,
         "Closed" => Color.Default,
+        "Rejected" => Color.Error,
         _ => Color.Default,
     };
+
+    private static string StatusText(string status) => status == "PendingApproval" ? "Pending approval" : status;
 }

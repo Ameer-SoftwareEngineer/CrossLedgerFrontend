@@ -184,6 +184,53 @@ public sealed class AdminApiClient
         return ApiResult.Success();
     }
 
+    public async Task<ApiResult<IReadOnlyList<PendingCardRequestResponse>>> ListPendingCardRequestsAsync()
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync("api/v1/admin/card-requests/pending"));
+        if (response is null)
+            return ApiResult<IReadOnlyList<PendingCardRequestResponse>>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<IReadOnlyList<PendingCardRequestResponse>>.Failed(code, message);
+        }
+
+        var pending = await response.Content.ReadFromJsonAsync<List<PendingCardRequestResponse>>()
+            ?? new List<PendingCardRequestResponse>();
+        return ApiResult<IReadOnlyList<PendingCardRequestResponse>>.Success(pending);
+    }
+
+    public async Task<ApiResult> ApproveCardRequestAsync(Guid cardId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsync($"api/v1/admin/card-requests/{cardId}/approve", null));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
+    public async Task<ApiResult> RejectCardRequestAsync(Guid cardId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsync($"api/v1/admin/card-requests/{cardId}/reject", null));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
     public async Task<ApiResult<WalletBalanceResponse>> GetWalletBalanceAsync(Guid walletId)
     {
         var response = await HttpCall.TrySendAsync(() => _http.GetAsync($"api/v1/admin/wallets/{walletId}/balance"));

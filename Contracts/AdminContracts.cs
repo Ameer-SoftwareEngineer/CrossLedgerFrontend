@@ -35,6 +35,23 @@ public sealed record ManualTransferRequest(Guid SourceWalletId, Guid TargetWalle
 
 public sealed record ManualTransferResponse(Guid TransferId, DateTimeOffset PostedAt);
 
+public sealed record PendingCardRequestResponse(
+    Guid CardId,
+    Guid OwnerId,
+    string OwnerEmail,
+    string Currency,
+    string CardType,
+    string CardholderName,
+    string SourceOfFunds,
+    decimal EstimatedGrossAnnualIncome,
+    decimal EstimatedNetWorth,
+    bool IsActivelyEmployed,
+    string? EmployerCompanyName,
+    string? JobTitle,
+    CardAddressDto RegisteredAddress,
+    CardAddressDto ShippingAddress,
+    DateTimeOffset RequestedAt);
+
 public sealed record PendingRegistrationResponse(
     Guid Id,
     string Email,
