@@ -11,3 +11,9 @@ public sealed record TransactionHistoryEntryResponse(
 
 public sealed record TransactionHistoryPageResponse(
     IReadOnlyList<TransactionHistoryEntryResponse> Entries, int TotalCount, int PageNumber, int PageSize);
+
+public sealed record AccountStatementEntryResponse(
+    Guid Id, Guid TransferId, string Direction, decimal Amount, DateTimeOffset PostedAt, decimal RunningBalance);
+
+public sealed record AccountStatementResponse(
+    string Currency, decimal OpeningBalance, IReadOnlyList<AccountStatementEntryResponse> Entries);

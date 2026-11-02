@@ -1,0 +1,13 @@
+@* A custom logomark, not a stock icon: three "ledger" bars crossed by a single diagonal
+   stroke - literally CrossLedger's own name rendered as a mark, rather than a generic
+   bank/exchange glyph every other fintech template reaches for. *@
+<svg viewBox="0 0 36 36" width="@Size" height="@Size" xmlns="http://www.w3.org/2000/svg" class="cl-mark">
+    <rect x="6" y="8.3" width="16" height="3.4" rx="1.7" fill="currentColor" fill-opacity="0.75" />
+    <rect x="6" y="16.3" width="24" height="3.4" rx="1.7" fill="currentColor" />
+    <rect x="6" y="24.3" width="12" height="3.4" rx="1.7" fill="currentColor" fill-opacity="0.75" />
+    <line x1="27.5" y1="4.5" x2="8.5" y2="31.5" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" />
+</svg>
+
+@code {
+    [Parameter] public int Size { get; set; } = 20;
+}

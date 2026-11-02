@@ -1,0 +1,110 @@
+@page "/wallets/{WalletId:guid}/statement"
+@attribute [Authorize]
+@inject WalletApiClient WalletApiClient
+
+<PageTitle>Account statement - CrossLedger</PageTitle>
+
+<div class="d-flex align-center mb-1">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" Href="/wallets" Class="mr-1" />
+    <MudText Typo="Typo.h4">Account statement</MudText>
+</div>
+<MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+    Opening balance plus a running balance per entry, computed server-side via a window function
+    (dbo.usp_GetAccountStatement).
+</MudText>
+
+<MudGrid Class="mb-4">
+    <MudItem xs="12" sm="4" md="3">
+        <MudDatePicker Label="From" @bind-Date="_fromDate" @bind-Date:after="LoadAsync" />
+    </MudItem>
+    <MudItem xs="12" sm="4" md="3">
+        <MudDatePicker Label="To" @bind-Date="_toDate" @bind-Date:after="LoadAsync" />
+    </MudItem>
+</MudGrid>
+
+@if (_isLoading)
+{
+    <MudProgressCircular Indeterminate="true" />
+}
+else if (_error is not null)
+{
+    <MudAlert Severity="Severity.Error">@_error</MudAlert>
+}
+else if (_statement is not null)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="max-width: 320px; background: rgba(255,255,255,0.03);">
+        <MudText Typo="Typo.caption" Class="cl-dash-subtitle">Opening balance</MudText>
+        <MudText Typo="Typo.h5">@SupportedCurrencies.Format(_statement.OpeningBalance, _statement.Currency) @_statement.Currency</MudText>
+    </MudPaper>
+
+    <MudSimpleTable Dense="true" Hover="true">
+        <thead>
+            <tr>
+                <th>Posted</th>
+                <th>Direction</th>
+                <th style="text-align: right;">Amount</th>
+                <th style="text-align: right;">Running balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (_statement.Entries.Count == 0)
+            {
+                <tr><td colspan="4">No entries in this range.</td></tr>
+            }
+            else
+            {
+                @foreach (var entry in _statement.Entries)
+                {
+                    <tr>
+                        <td>@entry.PostedAt.ToLocalTime().ToString("g")</td>
+                        <td>
+                            <MudChip T="string" Color="@(entry.Direction == "Credit" ? Color.Success : Color.Default)" Size="Size.Small">@entry.Direction</MudChip>
+                        </td>
+                        <td style="text-align: right;">
+                            @(entry.Direction == "Credit" ? "+" : "-")@SupportedCurrencies.Format(entry.Amount, _statement.Currency)
+                        </td>
+                        <td style="text-align: right;">@SupportedCurrencies.Format(entry.RunningBalance, _statement.Currency)</td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </MudSimpleTable>
+}
+
+@code {
+    [Parameter]
+    public Guid WalletId { get; set; }
+
+    private DateTime? _fromDate = DateTime.Today.AddDays(-30);
+    private DateTime? _toDate = DateTime.Today;
+
+    private AccountStatementResponse? _statement;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        if (_fromDate is null || _toDate is null)
+            return;
+
+        _isLoading = true;
+        _error = null;
+
+        var fromDate = new DateTimeOffset(DateTime.SpecifyKind(_fromDate.Value, DateTimeKind.Utc));
+        var toDate = new DateTimeOffset(DateTime.SpecifyKind(_toDate.Value.AddDays(1), DateTimeKind.Utc));
+
+        var result = await WalletApiClient.GetStatementAsync(WalletId, fromDate, toDate);
+
+        _isLoading = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _statement = result.Value;
+    }
+}

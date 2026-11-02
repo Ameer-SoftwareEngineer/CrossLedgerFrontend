@@ -1,0 +1,63 @@
+namespace CrossLedgerFrontend.Kyc;
+
+/// <summary>Dial codes for the registration form's phone field - plain text abbreviations,
+/// not flag emoji (regional-indicator flag emoji don't render on Windows/Segoe UI Emoji,
+/// they fall back to bare letters - found live-testing an earlier screen in this app).</summary>
+public static class PhoneCountryCodes
+{
+    public sealed record Entry(string Code, string Label);
+
+    public static readonly IReadOnlyList<Entry> All =
+    [
+        new("+1", "+1 US/CA"),
+        new("+44", "+44 UK"),
+        new("+91", "+91 IN"),
+        new("+92", "+92 PK"),
+        new("+61", "+61 AU"),
+        new("+64", "+64 NZ"),
+        new("+971", "+971 AE"),
+        new("+966", "+966 SA"),
+        new("+974", "+974 QA"),
+        new("+965", "+965 KW"),
+        new("+973", "+973 BH"),
+        new("+968", "+968 OM"),
+        new("+49", "+49 DE"),
+        new("+33", "+33 FR"),
+        new("+39", "+39 IT"),
+        new("+34", "+34 ES"),
+        new("+31", "+31 NL"),
+        new("+41", "+41 CH"),
+        new("+46", "+46 SE"),
+        new("+47", "+47 NO"),
+        new("+45", "+45 DK"),
+        new("+358", "+358 FI"),
+        new("+351", "+351 PT"),
+        new("+353", "+353 IE"),
+        new("+48", "+48 PL"),
+        new("+86", "+86 CN"),
+        new("+81", "+81 JP"),
+        new("+82", "+82 KR"),
+        new("+65", "+65 SG"),
+        new("+60", "+60 MY"),
+        new("+66", "+66 TH"),
+        new("+63", "+63 PH"),
+        new("+62", "+62 ID"),
+        new("+84", "+84 VN"),
+        new("+880", "+880 BD"),
+        new("+94", "+94 LK"),
+        new("+27", "+27 ZA"),
+        new("+234", "+234 NG"),
+        new("+254", "+254 KE"),
+        new("+20", "+20 EG"),
+        new("+212", "+212 MA"),
+        new("+55", "+55 BR"),
+        new("+52", "+52 MX"),
+        new("+54", "+54 AR"),
+        new("+57", "+57 CO"),
+        new("+56", "+56 CL"),
+        new("+90", "+90 TR"),
+        new("+7", "+7 RU"),
+        new("+380", "+380 UA"),
+        new("+30", "+30 GR"),
+    ];
+}

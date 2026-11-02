@@ -29,8 +29,19 @@ public sealed class CrossLedgerAuthenticationStateProvider : AuthenticationState
         if (string.IsNullOrWhiteSpace(token))
             return new AuthenticationState(Anonymous);
 
-        var identity = new ClaimsIdentity(ParseClaims(token), authenticationType: "jwt");
-        return new AuthenticationState(new ClaimsPrincipal(identity));
+        try
+        {
+            var identity = new ClaimsIdentity(ParseClaims(token), authenticationType: "jwt");
+            return new AuthenticationState(new ClaimsPrincipal(identity));
+        }
+        catch (Exception)
+        {
+            // A token that isn't well-formed JWT (corrupted storage, a stray value left
+            // over from an older build) must never crash the render tree - fall back to
+            // signed-out instead of taking the whole app down with an unhandled exception.
+            await _tokenStore.ClearAsync();
+            return new AuthenticationState(Anonymous);
+        }
     }
 
     /// <summary>Call after login/logout/refresh so every &lt;AuthorizeView&gt; and

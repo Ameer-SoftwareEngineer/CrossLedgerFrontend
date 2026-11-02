@@ -1,6 +1,7 @@
 @page "/payout"
 @attribute [Authorize]
 @inject WalletApiClient WalletApiClient
+@inject WalletChangeNotifier WalletChangeNotifier
 @inject PayoutApiClient PayoutApiClient
 
 <PageTitle>International payout - CrossLedger</PageTitle>
@@ -19,7 +20,7 @@
 else if (_wallets.Count == 0)
 {
     <MudAlert Severity="Severity.Info">
-        You need at least one wallet before you can send a payout. Add one from the <MudLink Href="/">Wallets</MudLink> page.
+        You need at least one wallet before you can send a payout. Add one from the <MudLink Href="/wallets">Wallets</MudLink> page.
     </MudAlert>
 }
 else
@@ -177,6 +178,7 @@ else
         }
 
         _payout = result.Value;
+        WalletChangeNotifier.NotifyChanged();
         await LoadRoutingDecisionAsync(_payout!.PayoutId);
     }
 
