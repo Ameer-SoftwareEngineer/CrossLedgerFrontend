@@ -41,3 +41,6 @@ public sealed record TopUpCardResponse(Guid TransferId, decimal Amount, string C
 public sealed record SimulateCardPurchaseRequest(string MerchantName, decimal Amount);
 
 public sealed record CardPurchaseResponse(Guid PurchaseId, Guid TransferId, string MerchantName, decimal Amount, string Currency, DateTimeOffset PostedAt);
+
+public sealed record CardAuthorizationResponse(
+    Guid AuthorizationId, string MerchantName, decimal Amount, string Currency, bool Approved, string? DeclineReason, DateTimeOffset DecidedAt);

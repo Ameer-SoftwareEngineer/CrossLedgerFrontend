@@ -181,6 +181,22 @@ public sealed class CardApiClient
         return ApiResult<IReadOnlyList<CardPurchaseResponse>>.Success(purchases);
     }
 
+    public async Task<ApiResult<IReadOnlyList<CardAuthorizationResponse>>> ListAuthorizationsAsync(Guid cardId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync($"api/v1/cards/{cardId}/authorizations"));
+        if (response is null)
+            return ApiResult<IReadOnlyList<CardAuthorizationResponse>>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<IReadOnlyList<CardAuthorizationResponse>>.Failed(code, message);
+        }
+
+        var authorizations = await response.Content.ReadFromJsonAsync<List<CardAuthorizationResponse>>() ?? new List<CardAuthorizationResponse>();
+        return ApiResult<IReadOnlyList<CardAuthorizationResponse>>.Success(authorizations);
+    }
+
     private async Task<ApiResult> PostActionAsync(string path)
     {
         var response = await HttpCall.TrySendAsync(() => _http.PostAsync(path, null));

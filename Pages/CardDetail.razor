@@ -87,6 +87,38 @@ else
             </div>
         </MudTabPanel>
 
+        <MudTabPanel Text="Authorization Attempts">
+            <div class="pa-4">
+                @if (_authorizations.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No real-time card authorizations yet - these only appear once this card is issued through Stripe Issuing (Phase 2) and presented at a merchant.</MudText>
+                }
+                else
+                {
+                    <MudTable Items="_authorizations" Hover="true" Dense="true">
+                        <HeaderContent>
+                            <MudTh>Merchant</MudTh>
+                            <MudTh Style="text-align: right;">Amount</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Reason</MudTh>
+                            <MudTh>Decided</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Merchant">@context.MerchantName</MudTd>
+                            <MudTd DataLabel="Amount" Style="text-align: right;">@SupportedCurrencies.Format(context.Amount, context.Currency) @context.Currency</MudTd>
+                            <MudTd DataLabel="Status">
+                                <MudChip T="string" Size="Size.Small" Color="@(context.Approved ? Color.Success : Color.Error)">
+                                    @(context.Approved ? "Approved" : "Declined")
+                                </MudChip>
+                            </MudTd>
+                            <MudTd DataLabel="Reason">@(context.DeclineReason ?? "-")</MudTd>
+                            <MudTd DataLabel="Decided">@context.DecidedAt.ToLocalTime().ToString("g")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </div>
+        </MudTabPanel>
+
         <MudTabPanel Text="Top Up">
             <div class="pa-4" style="max-width: 420px;">
                 @if (_card.Status is not ("Active" or "Frozen"))
@@ -183,6 +215,7 @@ else
     private bool _isBusy;
 
     private List<WalletSummaryResponse> _wallets = new();
+    private List<CardAuthorizationResponse> _authorizations = new();
 
     // Transaction History tab
     private MudTable<TransactionHistoryEntryResponse> _table = null!;
@@ -206,6 +239,10 @@ else
     protected override async Task OnInitializedAsync()
     {
         await LoadCardAsync();
+
+        var authorizationsResult = await CardApiClient.ListAuthorizationsAsync(CardId);
+        if (authorizationsResult.IsSuccess)
+            _authorizations = authorizationsResult.Value!.ToList();
 
         var walletsResult = await WalletApiClient.ListMineAsync();
         if (walletsResult.IsSuccess)
