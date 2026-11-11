@@ -28,11 +28,21 @@ public sealed record CardResponse(
     string Status,
     decimal? SpendingLimit,
     decimal Balance,
-    DateTimeOffset IssuedAt);
+    DateTimeOffset IssuedAt,
+    IReadOnlyList<string> BlockedMerchantCategoryCodes,
+    IReadOnlyList<string> AllowedCountries,
+    decimal? DailySpendingLimit,
+    decimal? MonthlySpendingLimit);
 
 public sealed record RevealCardDetailsResponse(string Pan, string Cvv, int ExpiryMonth, int ExpiryYear);
 
 public sealed record SetCardSpendingLimitRequest(decimal? Limit);
+
+public sealed record SetCardSpendingControlsRequest(
+    IReadOnlyList<string> BlockedMerchantCategoryCodes,
+    IReadOnlyList<string> AllowedCountries,
+    decimal? DailyLimit,
+    decimal? MonthlyLimit);
 
 public sealed record TopUpCardRequest(Guid SourceWalletId, decimal Amount);
 

@@ -195,6 +195,26 @@ else
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveLimitAsync" Disabled="@(_card.Status is not ("Active" or "Frozen") || _isBusy)">Save</MudButton>
                     </MudStack>
 
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.subtitle2">Spending controls</MudText>
+                    <MudNumericField T="decimal?" @bind-Value="_dailyLimitInput" Label="Daily limit" Clearable="true" />
+                    <MudNumericField T="decimal?" @bind-Value="_monthlyLimitInput" Label="Monthly limit" Clearable="true" />
+                    <MudSelect T="string" Label="Blocked merchant categories" MultiSelection="true" @bind-SelectedValues="_blockedCategoriesInput">
+                        @foreach (var category in BlockedCategoryOptions)
+                        {
+                            <MudSelectItem T="string" Value="@category.Key">@category.Value</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="string" Label="Allowed countries (empty = unrestricted)" MultiSelection="true" @bind-SelectedValues="_allowedCountriesInput">
+                        @foreach (var country in Countries.All)
+                        {
+                            <MudSelectItem T="string" Value="@country">@country</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveSpendingControlsAsync" Disabled="@(_card.Status is not ("Active" or "Frozen") || _isBusy)">
+                        Save spending controls
+                    </MudButton>
+
                     @if (_card.Status != "Closed")
                     {
                         <MudButton Variant="Variant.Outlined" Color="Color.Error" FullWidth="true" OnClick="CloseAsync" Disabled="_isBusy">Close card</MudButton>
@@ -235,6 +255,22 @@ else
     private RevealCardDetailsResponse? _revealed;
     private bool _showCvc;
     private decimal? _limitInput;
+    private decimal? _dailyLimitInput;
+    private decimal? _monthlyLimitInput;
+    private IEnumerable<string> _blockedCategoriesInput = new List<string>();
+    private IEnumerable<string> _allowedCountriesInput = new List<string>();
+
+    private static readonly IReadOnlyDictionary<string, string> BlockedCategoryOptions = new Dictionary<string, string>
+    {
+        ["7995"] = "Gambling",
+        ["5967"] = "Adult content",
+        ["6051"] = "Cryptocurrency",
+        ["4829"] = "Money transfer",
+        ["5933"] = "Pawn shops",
+        ["5921"] = "Liquor stores",
+        ["7800"] = "Lottery",
+        ["6011"] = "ATM withdrawal",
+    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -267,7 +303,15 @@ else
 
         _card = result.Value!.FirstOrDefault(c => c.CardId == CardId);
         if (_card is not null)
+        {
             _limitInput = _card.SpendingLimit;
+            _dailyLimitInput = _card.DailySpendingLimit;
+            _monthlyLimitInput = _card.MonthlySpendingLimit;
+            _blockedCategoriesInput = _card.BlockedMerchantCategoryCodes.ToList();
+            _allowedCountriesInput = _card.AllowedCountries
+                .Select(code => Countries.NamesByIsoCode.GetValueOrDefault(code, code))
+                .ToList();
+        }
     }
 
     private async Task OnFilterChangedAsync()
@@ -439,6 +483,41 @@ else
         }
 
         Snackbar.Add("Spending limit updated.", Severity.Success);
+        await LoadCardAsync();
+    }
+
+    private async Task SaveSpendingControlsAsync()
+    {
+        _isBusy = true;
+        _error = null;
+
+        var allowedCountryCodes = _allowedCountriesInput.Select(name => Countries.IsoCodesByName.GetValueOrDefault(name, name)).ToList();
+        var blockedCategories = _blockedCategoriesInput.ToList();
+
+        var result = await CardApiClient.SetSpendingControlsAsync(CardId, blockedCategories, allowedCountryCodes, _dailyLimitInput, _monthlyLimitInput);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync("ChangeSpendingLimits");
+            if (token is null)
+            {
+                _isBusy = false;
+                _error = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await CardApiClient.SetSpendingControlsAsync(CardId, blockedCategories, allowedCountryCodes, _dailyLimitInput, _monthlyLimitInput, token);
+        }
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        Snackbar.Add("Spending controls updated.", Severity.Success);
         await LoadCardAsync();
     }
 

@@ -111,6 +111,35 @@ public sealed class CardApiClient
     /// <summary>Step-up gated the same way a regular transfer is (above
     /// Limits:StepUpAbove) - same retry-with-token pattern as every other step-up-gated
     /// call in this client.</summary>
+    /// <summary>Always step-up gated server-side (StepUpOperation.ChangeSpendingLimits,
+    /// same policy row the per-purchase limit uses), no threshold.</summary>
+    public async Task<ApiResult> SetSpendingControlsAsync(
+        Guid cardId, IReadOnlyList<string> blockedMerchantCategoryCodes, IReadOnlyList<string> allowedCountries,
+        decimal? dailyLimit, decimal? monthlyLimit, string? stepUpToken = null)
+    {
+        var response = await HttpCall.TrySendAsync(async () =>
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Put, $"api/v1/cards/{cardId}/spending-controls")
+            {
+                Content = JsonContent.Create(new SetCardSpendingControlsRequest(blockedMerchantCategoryCodes, allowedCountries, dailyLimit, monthlyLimit)),
+            };
+            if (stepUpToken is not null)
+                message.Headers.Add(StepUpTokenHeaderName, stepUpToken);
+
+            return await _http.SendAsync(message);
+        });
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
     public async Task<ApiResult<TopUpCardResponse>> TopUpAsync(Guid cardId, Guid sourceWalletId, decimal amount, string idempotencyKey, string? stepUpToken = null)
     {
         var response = await HttpCall.TrySendAsync(async () =>
