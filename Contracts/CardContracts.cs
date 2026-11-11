@@ -32,7 +32,8 @@ public sealed record CardResponse(
     IReadOnlyList<string> BlockedMerchantCategoryCodes,
     IReadOnlyList<string> AllowedCountries,
     decimal? DailySpendingLimit,
-    decimal? MonthlySpendingLimit);
+    decimal? MonthlySpendingLimit,
+    bool HasPin);
 
 public sealed record RevealCardDetailsResponse(string Pan, string Cvv, int ExpiryMonth, int ExpiryYear);
 
@@ -43,6 +44,8 @@ public sealed record SetCardSpendingControlsRequest(
     IReadOnlyList<string> AllowedCountries,
     decimal? DailyLimit,
     decimal? MonthlyLimit);
+
+public sealed record SetCardPinRequest(string Pin);
 
 public sealed record TopUpCardRequest(Guid SourceWalletId, decimal Amount);
 

@@ -140,6 +140,33 @@ public sealed class CardApiClient
         return ApiResult.Success();
     }
 
+    /// <summary>Always step-up gated server-side (StepUpOperation.ChangeCardPin), no
+    /// threshold. Set/change only - there is no reveal.</summary>
+    public async Task<ApiResult> SetPinAsync(Guid cardId, string pin, string? stepUpToken = null)
+    {
+        var response = await HttpCall.TrySendAsync(async () =>
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Put, $"api/v1/cards/{cardId}/pin")
+            {
+                Content = JsonContent.Create(new SetCardPinRequest(pin)),
+            };
+            if (stepUpToken is not null)
+                message.Headers.Add(StepUpTokenHeaderName, stepUpToken);
+
+            return await _http.SendAsync(message);
+        });
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
     public async Task<ApiResult<TopUpCardResponse>> TopUpAsync(Guid cardId, Guid sourceWalletId, decimal amount, string idempotencyKey, string? stepUpToken = null)
     {
         var response = await HttpCall.TrySendAsync(async () =>

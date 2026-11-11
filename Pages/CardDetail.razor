@@ -215,6 +215,20 @@ else
                         Save spending controls
                     </MudButton>
 
+                    <MudDivider Class="my-2" />
+                    <MudText Typo="Typo.subtitle2">PIN</MudText>
+                    <MudStack Row="true" Spacing="2">
+                        <MudTextField T="string" @bind-Value="_pinInput" Label="New PIN" InputType="InputType.Password" MaxLength="4" />
+                        <MudTextField T="string" @bind-Value="_pinConfirmInput" Label="Confirm PIN" InputType="InputType.Password" MaxLength="4" />
+                    </MudStack>
+                    @if (_pinError is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_pinError</MudAlert>
+                    }
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePinAsync" Disabled="@(_card.Status is not ("Active" or "Frozen") || _isBusy)">
+                        @(_card.HasPin ? "Change PIN" : "Set PIN")
+                    </MudButton>
+
                     @if (_card.Status != "Closed")
                     {
                         <MudButton Variant="Variant.Outlined" Color="Color.Error" FullWidth="true" OnClick="CloseAsync" Disabled="_isBusy">Close card</MudButton>
@@ -259,6 +273,9 @@ else
     private decimal? _monthlyLimitInput;
     private IEnumerable<string> _blockedCategoriesInput = new List<string>();
     private IEnumerable<string> _allowedCountriesInput = new List<string>();
+    private string _pinInput = string.Empty;
+    private string _pinConfirmInput = string.Empty;
+    private string? _pinError;
 
     private static readonly IReadOnlyDictionary<string, string> BlockedCategoryOptions = new Dictionary<string, string>
     {
@@ -518,6 +535,54 @@ else
         }
 
         Snackbar.Add("Spending controls updated.", Severity.Success);
+        await LoadCardAsync();
+    }
+
+    private async Task SavePinAsync()
+    {
+        _pinError = null;
+
+        if (_pinInput.Length != 4 || !_pinInput.All(char.IsDigit))
+        {
+            _pinError = "PIN must be exactly 4 digits.";
+            return;
+        }
+
+        if (_pinInput != _pinConfirmInput)
+        {
+            _pinError = "PINs do not match.";
+            return;
+        }
+
+        _isBusy = true;
+        _error = null;
+
+        var result = await CardApiClient.SetPinAsync(CardId, _pinInput);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync("ChangeCardPin");
+            if (token is null)
+            {
+                _isBusy = false;
+                _error = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await CardApiClient.SetPinAsync(CardId, _pinInput, token);
+        }
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        _pinInput = string.Empty;
+        _pinConfirmInput = string.Empty;
+        Snackbar.Add("PIN updated.", Severity.Success);
         await LoadCardAsync();
     }
 
