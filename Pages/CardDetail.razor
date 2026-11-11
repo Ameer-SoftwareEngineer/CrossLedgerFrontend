@@ -5,6 +5,7 @@
 @inject WalletChangeNotifier WalletChangeNotifier
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
 
 <PageTitle>Card details - CrossLedger</PageTitle>
 
@@ -37,6 +38,26 @@ else
     else if (_card.Status == "Rejected")
     {
         <MudAlert Severity="Severity.Error" Class="mb-4">This card request was rejected and can never be used.</MudAlert>
+    }
+
+    @if (_card.CardType == "Physical" && _card.FulfillmentStatus is "Pending" or "Shipped" or "Delivered" && !_card.IsActivated)
+    {
+        <MudAlert Severity="Severity.Info" Class="mb-4">
+            @if (_card.FulfillmentStatus == "Pending")
+            {
+                <span>Your physical card hasn't shipped yet.</span>
+            }
+            else
+            {
+                <span>Shipped via @_card.ShippingCarrier, tracking @_card.TrackingNumber.</span>
+            }
+            @if (_card.FulfillmentStatus is "Shipped" or "Delivered")
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="ml-3" OnClick="ActivateAsync" Disabled="_isBusy">
+                    Activate my card
+                </MudButton>
+            }
+        </MudAlert>
     }
 
     @if (_error is not null)
@@ -228,6 +249,13 @@ else
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePinAsync" Disabled="@(_card.Status is not ("Active" or "Frozen") || _isBusy)">
                         @(_card.HasPin ? "Change PIN" : "Set PIN")
                     </MudButton>
+
+                    @if (_card.Status is "Active" or "Frozen")
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Warning" FullWidth="true" OnClick="ReissueAsync" Disabled="_isBusy">
+                            Report lost or stolen &amp; get a replacement
+                        </MudButton>
+                    }
 
                     @if (_card.Status != "Closed")
                     {
@@ -584,6 +612,64 @@ else
         _pinConfirmInput = string.Empty;
         Snackbar.Add("PIN updated.", Severity.Success);
         await LoadCardAsync();
+    }
+
+    private async Task ActivateAsync()
+    {
+        _isBusy = true;
+        _error = null;
+
+        var result = await CardApiClient.ActivateAsync(CardId);
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        Snackbar.Add("Card activated.", Severity.Success);
+        await LoadCardAsync();
+    }
+
+    private async Task ReissueAsync()
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Report lost or stolen?",
+            "This closes your current card and issues a new one with the same balance. This can't be undone.",
+            yesText: "Report & replace", cancelText: "Cancel");
+        if (confirmed != true)
+            return;
+
+        _isBusy = true;
+        _error = null;
+
+        var result = await CardApiClient.ReissueAsync(CardId, null);
+
+        if (result.IsStepUpRequired)
+        {
+            var token = await RequestStepUpTokenAsync("ReissueCard");
+            if (token is null)
+            {
+                _isBusy = false;
+                _error = "Step-up verification was cancelled.";
+                return;
+            }
+
+            result = await CardApiClient.ReissueAsync(CardId, null, token);
+        }
+
+        _isBusy = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        Snackbar.Add("Your replacement card has been requested and is awaiting admin review.", Severity.Success);
+        NavigationManager.NavigateTo($"/cards/{result.Value!.NewCardId}");
     }
 
     private async Task RunActionAsync(Func<Task<ApiResult>> action)

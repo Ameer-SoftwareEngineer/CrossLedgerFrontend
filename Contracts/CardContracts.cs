@@ -33,7 +33,12 @@ public sealed record CardResponse(
     IReadOnlyList<string> AllowedCountries,
     decimal? DailySpendingLimit,
     decimal? MonthlySpendingLimit,
-    bool HasPin);
+    bool HasPin,
+    string FulfillmentStatus,
+    string? ShippingCarrier,
+    string? TrackingNumber,
+    bool IsActivated,
+    Guid? ReplacesCardId);
 
 public sealed record RevealCardDetailsResponse(string Pan, string Cvv, int ExpiryMonth, int ExpiryYear);
 
@@ -57,3 +62,8 @@ public sealed record CardPurchaseResponse(Guid PurchaseId, Guid TransferId, stri
 
 public sealed record CardAuthorizationResponse(
     Guid AuthorizationId, string MerchantName, decimal Amount, string Currency, bool Approved, string? DeclineReason, DateTimeOffset DecidedAt);
+
+/// <summary>Null keeps the old card's shipping address.</summary>
+public sealed record ReissueCardRequest(CardAddressDto? NewShippingAddress);
+
+public sealed record ReissueCardResponse(Guid NewCardId);

@@ -71,3 +71,16 @@ public sealed record PendingRegistrationResponse(
 {
     public string FullName => string.IsNullOrWhiteSpace(MiddleName) ? $"{FirstName} {LastName}" : $"{FirstName} {MiddleName} {LastName}";
 }
+
+public sealed record CardFulfillmentSummaryResponse(
+    Guid CardId,
+    Guid OwnerId,
+    string OwnerEmail,
+    string CardholderName,
+    string FulfillmentStatus,
+    string? ShippingCarrier,
+    string? TrackingNumber,
+    CardAddressDto ShippingAddress,
+    DateTimeOffset IssuedAt);
+
+public sealed record MarkCardShippedRequest(string Carrier, string TrackingNumber);

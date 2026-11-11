@@ -1,0 +1,60 @@
+@inject AdminApiClient AdminApiClient
+
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Class="cl-dash-subtitle mb-4">
+            @Card.CardholderName - ships to @Card.ShippingAddress.Street @Card.ShippingAddress.Number, @Card.ShippingAddress.City
+        </MudText>
+
+        <MudTextField T="string" @bind-Value="_carrier" Label="Carrier" Placeholder="e.g. UPS, FedEx" />
+        <MudTextField T="string" @bind-Value="_trackingNumber" Label="Tracking number" Class="mt-4" />
+
+        @if (_error is not null)
+        {
+            <MudAlert Severity="Severity.Error" Class="mt-4">@_error</MudAlert>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="SubmitAsync" Disabled="_isSubmitting">
+            @(_isSubmitting ? "Working..." : "Mark shipped")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public CardFulfillmentSummaryResponse Card { get; set; } = null!;
+
+    private string _carrier = string.Empty;
+    private string _trackingNumber = string.Empty;
+    private string? _error;
+    private bool _isSubmitting;
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_carrier) || string.IsNullOrWhiteSpace(_trackingNumber))
+        {
+            _error = "Carrier and tracking number are both required.";
+            return;
+        }
+
+        _isSubmitting = true;
+        _error = null;
+
+        var result = await AdminApiClient.MarkCardShippedAsync(Card.CardId, _carrier, _trackingNumber);
+
+        _isSubmitting = false;
+
+        if (!result.IsSuccess)
+        {
+            _error = result.ErrorMessage;
+            return;
+        }
+
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

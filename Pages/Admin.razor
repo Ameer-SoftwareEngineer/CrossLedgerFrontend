@@ -105,6 +105,62 @@
         }
     </MudTabPanel>
 
+    <MudTabPanel Text="@FulfillmentTabText">
+        @if (_isLoadingFulfillment)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_fulfillmentError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_fulfillmentError</MudAlert>
+        }
+        else if (_cardsAwaitingFulfillment.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No physical cards awaiting shipment or activation.</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Cardholder</th>
+                        <th>Owner</th>
+                        <th>Status</th>
+                        <th>Carrier / Tracking</th>
+                        <th>Issued</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var card in _cardsAwaitingFulfillment)
+                    {
+                        <tr>
+                            <td>@card.CardholderName</td>
+                            <td>@card.OwnerEmail</td>
+                            <td>@card.FulfillmentStatus</td>
+                            <td>@(card.ShippingCarrier is null ? "-" : $"{card.ShippingCarrier} / {card.TrackingNumber}")</td>
+                            <td>@card.IssuedAt.ToLocalTime().ToString("g")</td>
+                            <td>
+                                @if (card.FulfillmentStatus == "Pending")
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => ShipCardAsync(card))">
+                                        Mark shipped
+                                    </MudButton>
+                                }
+                                else if (card.FulfillmentStatus == "Shipped")
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => MarkCardDeliveredAsync(card))">
+                                        Mark delivered
+                                    </MudButton>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudTabPanel>
+
     <MudTabPanel Text="Users">
         @if (_isLoadingUsers)
         {
@@ -418,6 +474,12 @@
 
     private string CardRequestsTabText => _pendingCardRequests.Count == 0 ? "Card requests" : $"Card requests ({_pendingCardRequests.Count})";
 
+    private List<CardFulfillmentSummaryResponse> _cardsAwaitingFulfillment = new();
+    private bool _isLoadingFulfillment = true;
+    private string? _fulfillmentError;
+
+    private string FulfillmentTabText => _cardsAwaitingFulfillment.Count == 0 ? "Card fulfillment" : $"Card fulfillment ({_cardsAwaitingFulfillment.Count})";
+
     private List<UserSummaryResponse> _users = new();
     private readonly Dictionary<Guid, HashSet<string>> _editedRoles = new();
     private bool _isLoadingUsers = true;
@@ -453,6 +515,7 @@
     {
         await LoadPendingRegistrationsAsync();
         await LoadPendingCardRequestsAsync();
+        await LoadCardsAwaitingFulfillmentAsync();
         await LoadUsersAsync();
         await LoadProviderHealthAsync();
     }
@@ -518,6 +581,51 @@
             Snackbar.Add($"{request.CardholderName}'s card request was reviewed.", Severity.Success);
             await LoadPendingCardRequestsAsync();
         }
+    }
+
+    private async Task LoadCardsAwaitingFulfillmentAsync()
+    {
+        _isLoadingFulfillment = true;
+        _fulfillmentError = null;
+
+        var result = await AdminApiClient.ListCardsAwaitingFulfillmentAsync();
+
+        _isLoadingFulfillment = false;
+
+        if (!result.IsSuccess)
+        {
+            _fulfillmentError = result.ErrorMessage;
+            return;
+        }
+
+        _cardsAwaitingFulfillment = result.Value!.OrderBy(c => c.IssuedAt).ToList();
+    }
+
+    private async Task ShipCardAsync(CardFulfillmentSummaryResponse card)
+    {
+        var parameters = new DialogParameters<CardShipDialog> { { x => x.Card, card } };
+        var dialog = await DialogService.ShowAsync<CardShipDialog>("Mark card shipped", parameters);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            Snackbar.Add($"{card.CardholderName}'s card was marked shipped.", Severity.Success);
+            await LoadCardsAwaitingFulfillmentAsync();
+        }
+    }
+
+    private async Task MarkCardDeliveredAsync(CardFulfillmentSummaryResponse card)
+    {
+        var result = await AdminApiClient.MarkCardDeliveredAsync(card.CardId);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Failed to mark the card delivered.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"{card.CardholderName}'s card was marked delivered.", Severity.Success);
+        await LoadCardsAwaitingFulfillmentAsync();
     }
 
     private async Task LoadUsersAsync()

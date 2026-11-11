@@ -237,6 +237,39 @@ public sealed class CardApiClient
         return ApiResult<IReadOnlyList<CardPurchaseResponse>>.Success(purchases);
     }
 
+    /// <summary>No step-up - confirming receipt of your own card isn't sensitive the way
+    /// changing a PIN or spending limit is.</summary>
+    public async Task<ApiResult> ActivateAsync(Guid cardId) => await PostActionAsync($"api/v1/cards/{cardId}/activate");
+
+    /// <summary>Always step-up gated server-side (StepUpOperation.ReissueCard), no
+    /// threshold.</summary>
+    public async Task<ApiResult<ReissueCardResponse>> ReissueAsync(Guid cardId, CardAddressDto? newShippingAddress, string? stepUpToken = null)
+    {
+        var response = await HttpCall.TrySendAsync(async () =>
+        {
+            using var message = new HttpRequestMessage(HttpMethod.Post, $"api/v1/cards/{cardId}/reissue")
+            {
+                Content = JsonContent.Create(new ReissueCardRequest(newShippingAddress)),
+            };
+            if (stepUpToken is not null)
+                message.Headers.Add(StepUpTokenHeaderName, stepUpToken);
+
+            return await _http.SendAsync(message);
+        });
+        if (response is null)
+            return ApiResult<ReissueCardResponse>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<ReissueCardResponse>.Failed(code, message);
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<ReissueCardResponse>()
+            ?? throw new InvalidOperationException("Reissue succeeded but the response body was empty.");
+        return ApiResult<ReissueCardResponse>.Success(result);
+    }
+
     public async Task<ApiResult<IReadOnlyList<CardAuthorizationResponse>>> ListAuthorizationsAsync(Guid cardId)
     {
         var response = await HttpCall.TrySendAsync(() => _http.GetAsync($"api/v1/cards/{cardId}/authorizations"));
