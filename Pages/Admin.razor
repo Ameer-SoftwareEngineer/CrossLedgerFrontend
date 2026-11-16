@@ -12,7 +12,38 @@
     or Support token gets a clean 403 from each of these endpoints (specification 9's RBAC proof).
 </MudText>
 
-<MudTabs Elevation="1" Rounded="true" PanelClass="pa-4" ApplyEffectsToContainer="true">
+<MudGrid Class="mb-6">
+    <MudItem xs="12" sm="6" md="3">
+        <div class="cl-admin-stat-card" @onclick="@(() => _activeTabIndex = 0)">
+            <div class="cl-admin-stat-icon"><MudIcon Icon="@Icons.Material.Filled.PersonAdd" /></div>
+            <div class="cl-admin-stat-value">@_pendingRegistrations.Count</div>
+            <div class="cl-admin-stat-label">Pending registrations</div>
+        </div>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <div class="cl-admin-stat-card" @onclick="@(() => _activeTabIndex = 1)">
+            <div class="cl-admin-stat-icon"><MudIcon Icon="@Icons.Material.Filled.CreditCard" /></div>
+            <div class="cl-admin-stat-value">@_pendingCardRequests.Count</div>
+            <div class="cl-admin-stat-label">Pending card requests</div>
+        </div>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <div class="cl-admin-stat-card" @onclick="@(() => _activeTabIndex = 2)">
+            <div class="cl-admin-stat-icon"><MudIcon Icon="@Icons.Material.Filled.LocalShipping" /></div>
+            <div class="cl-admin-stat-value">@_cardsAwaitingFulfillment.Count</div>
+            <div class="cl-admin-stat-label">Cards awaiting fulfillment</div>
+        </div>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <div class="cl-admin-stat-card" @onclick="@(() => _activeTabIndex = 3)">
+            <div class="cl-admin-stat-icon"><MudIcon Icon="@Icons.Material.Filled.Group" /></div>
+            <div class="cl-admin-stat-value">@_users.Count</div>
+            <div class="cl-admin-stat-label">Total users</div>
+        </div>
+    </MudItem>
+</MudGrid>
+
+<MudTabs @bind-ActivePanelIndex="_activeTabIndex" Elevation="1" Rounded="true" PanelClass="pa-4" ApplyEffectsToContainer="true">
     <MudTabPanel Text="@PendingTabText">
         @if (_isLoadingPending)
         {
@@ -460,6 +491,8 @@
 </MudTabs>
 
 @code {
+    private int _activeTabIndex;
+
     private static readonly string[] AllRoles = ["Customer", "Support", "Admin"];
 
     private List<PendingRegistrationResponse> _pendingRegistrations = new();

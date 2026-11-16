@@ -146,91 +146,126 @@ body {
     color: #0F172A !important;
 }
 
-.cl-nav-section {
-    color: #94A3B8;
-    letter-spacing: .1em;
+/* ---- Sidebar: a floating dark-glass capsule, not a flush full-height panel -
+   the drawer itself is transparent/borderless; cl-pill-sidebar is the actual
+   visible shape, inset from the viewport edges so the top AND bottom corners
+   read as rounded caps. ---- */
+.cl-pill-drawer.mud-drawer {
+    background: transparent !important;
+    border: none !important;
+    overflow: visible !important;
 }
 
-/* ---- Sidebar ---- */
-.cl-drawer.mud-drawer {
-    border-right: 1px solid rgba(15, 23, 42, 0.06);
-    background-color: #FFFFFF;
+.cl-pill-sidebar {
+    position: fixed;
+    top: 16px;
+    bottom: 16px;
+    left: 16px;
+    width: 76px;
+    border-radius: 38px;
+    background: linear-gradient(180deg, #16213A 0%, #0B1220 100%);
+    box-shadow:
+        0 0 0 1px rgba(16, 185, 129, 0.25),
+        0 24px 48px -16px rgba(0, 0, 0, 0.5),
+        0 0 40px -8px rgba(16, 185, 129, 0.35);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px 0;
+    gap: 6px;
+    z-index: 1200;
 }
 
-.cl-drawer .mud-nav-link {
-    position: relative;
-    border-radius: 10px;
-    margin: 2px 6px;
-    overflow: hidden;
-    transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease, transform 220ms cubic-bezier(.22, .9, .32, 1);
+.cl-pill-logo {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #06110C;
+    background: linear-gradient(135deg, #34D399 0%, #10B981 55%, #22D3EE 100%);
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.4), 0 8px 20px -4px rgba(16, 185, 129, 0.65);
+    margin-bottom: 8px;
+    flex-shrink: 0;
 }
 
-/* ---- Hover: the link itself glides toward the pointer and gains a left accent
-   bar, instead of a flat colour swap - the sidebar should feel alive under the mouse ---- */
-.cl-drawer .mud-nav-link::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 50%;
-    width: 3px;
-    height: 0%;
-    transform: translateY(-50%);
-    background: linear-gradient(180deg, #10B981, #22D3EE);
-    border-radius: 0 6px 6px 0;
-    transition: height 220ms ease;
+.cl-pill-avatar.mud-avatar {
+    width: 44px !important;
+    height: 44px !important;
+    background: linear-gradient(135deg, #475569, #1E293B) !important;
+    color: #E2E8F0 !important;
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 10px;
+    cursor: pointer;
 }
 
-.cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover {
-    background-color: rgba(16, 185, 129, 0.08);
-    color: #0F172A !important;
-    transform: translateX(8px);
+.cl-pill-divider.mud-divider {
+    width: 32px;
+    margin: 4px 0 10px !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
 }
 
-.cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover .mud-icon-root {
-    color: #34D399;
+.cl-pill-nav, .cl-pill-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
 }
 
-.cl-drawer .mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover::before {
-    height: 60%;
+.cl-pill-spacer {
+    flex: 1;
 }
 
-.cl-drawer .mud-nav-link.active:not(.mud-nav-link-disabled) {
+/* ---- Icon-only nav tiles - MudNavLink with no label, each wrapped in a
+   MudTooltip for discoverability. Reuses the same active/hover language the
+   old full-width drawer links used, just reshaped into a centered tile. ---- */
+.cl-pill-link.mud-nav-link {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    border-radius: 14px;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #94A3B8 !important;
+    transition: background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.cl-pill-link.mud-nav-link .mud-nav-link-icon {
+    margin: 0 !important;
+    color: inherit !important;
+}
+
+.cl-pill-link.mud-nav-link:not(.active):not(.mud-nav-link-disabled):hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #E2E8F0 !important;
+}
+
+.cl-pill-link.mud-nav-link.active:not(.mud-nav-link-disabled) {
     background: linear-gradient(135deg, #10B981 0%, #0EA5B5 100%) !important;
     color: #06110C !important;
-    font-weight: 700 !important;
-    border-inline-end-style: none !important;
     box-shadow: 0 0 22px -2px rgba(16, 185, 129, 0.65);
 }
 
-.cl-drawer .mud-nav-link.active:not(.mud-nav-link-disabled) .mud-icon-root {
-    color: #06110C !important;
+.cl-pill-link-accent.mud-nav-link:not(.active) {
+    color: #34D399 !important;
 }
 
-.cl-sidebar-balances {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 4px 8px 8px;
+/* The bottom "Log out" tile is a plain MudIconButton, not a MudNavLink - same
+   tile sizing/hover so it reads as part of the same row. */
+.cl-pill-bottom .mud-icon-button.cl-pill-link {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    color: #94A3B8 !important;
 }
 
-.cl-sidebar-balance-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    border-radius: 10px;
-    font-size: 0.8125rem;
-}
-
-.cl-sidebar-balance-currency {
-    font-weight: 700;
-    color: #0F172A;
-    letter-spacing: .02em;
-}
-
-.cl-sidebar-balance-amount {
-    color: #64748B;
-    font-variant-numeric: tabular-nums;
+.cl-pill-bottom .mud-icon-button.cl-pill-link:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #E2E8F0 !important;
 }
 
 /* ---- Cards: a soft shadow with a whisper of brand colour instead of a flat
@@ -258,6 +293,54 @@ body {
 
 .cl-main-content {
     min-height: 100vh;
+}
+
+/* ---- Admin console: dark-glass stat tiles at a glance above the tab deck -
+   same dark-glass visual language as the pill sidebar (a deliberate accent on
+   an otherwise light page, not a full dark-mode switch). ---- */
+.cl-admin-stat-card {
+    border-radius: 20px;
+    padding: 20px 22px;
+    background: linear-gradient(145deg, rgba(22, 33, 58, 0.92) 0%, rgba(11, 18, 32, 0.96) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 20px 40px -16px rgba(0, 0, 0, 0.45);
+    color: #E2E8F0;
+    cursor: pointer;
+    transition: transform 180ms ease, box-shadow 180ms ease;
+}
+
+.cl-admin-stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow:
+        0 0 0 1px rgba(16, 185, 129, 0.35),
+        0 28px 48px -16px rgba(0, 0, 0, 0.55),
+        0 0 32px -8px rgba(16, 185, 129, 0.45);
+}
+
+.cl-admin-stat-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(34, 211, 238, 0.2));
+    color: #34D399;
+    margin-bottom: 14px;
+}
+
+.cl-admin-stat-value {
+    font-size: 1.9rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+}
+
+.cl-admin-stat-label {
+    font-size: 0.8rem;
+    color: #94A3B8;
+    margin-top: 6px;
 }
 
 /* ---- Dashboard ---- */
