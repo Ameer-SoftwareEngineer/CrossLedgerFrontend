@@ -41,6 +41,13 @@
             <div class="cl-admin-stat-label">Total users</div>
         </div>
     </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <div class="cl-admin-stat-card" @onclick="@(() => _activeTabIndex = 10)">
+            <div class="cl-admin-stat-icon"><MudIcon Icon="@Icons.Material.Filled.ReportProblem" /></div>
+            <div class="cl-admin-stat-value">@_pendingManualReview.Count</div>
+            <div class="cl-admin-stat-label">Authorizations needing review</div>
+        </div>
+    </MudItem>
 </MudGrid>
 
 <MudTabs @bind-ActivePanelIndex="_activeTabIndex" Elevation="1" Rounded="true" PanelClass="pa-4" ApplyEffectsToContainer="true">
@@ -488,6 +495,60 @@
             </MudButton>
         </MudPaper>
     </MudTabPanel>
+
+    <MudTabPanel Text="@ManualReviewTabText">
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Capture webhooks that asked for more than the card wallet could cover (an over-capture) - funds stay
+            reserved, nothing is lost silently, and resolving one here is a deliberate acknowledgment only, not an
+            automatic money movement.
+        </MudText>
+        @if (_isLoadingManualReview)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else if (_manualReviewError is not null)
+        {
+            <MudAlert Severity="Severity.Error">@_manualReviewError</MudAlert>
+        }
+        else if (_pendingManualReview.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Class="cl-dash-subtitle">No authorizations need manual review.</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>Cardholder</th>
+                        <th>Merchant</th>
+                        <th>Held</th>
+                        <th>Attempted capture</th>
+                        <th>Reason</th>
+                        <th>Flagged</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _pendingManualReview)
+                    {
+                        <tr>
+                            <td>@item.CardholderName</td>
+                            <td>@item.MerchantName</td>
+                            <td>@SupportedCurrencies.Format(item.Amount, item.CurrencyCode) @item.CurrencyCode</td>
+                            <td>@SupportedCurrencies.Format(item.AttemptedCaptureAmount, item.CurrencyCode) @item.CurrencyCode</td>
+                            <td>@item.ManualReviewReason</td>
+                            <td>@item.ManualReviewFlaggedAt.ToLocalTime().ToString("g")</td>
+                            <td>
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => ResolveManualReviewAsync(item))">
+                                    Mark resolved
+                                </MudButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudTabPanel>
 </MudTabs>
 
 @code {
@@ -544,6 +605,12 @@
     private ManualTransferResponse? _lastManualTransfer;
     private string _manualTransferIdempotencyKey = Guid.NewGuid().ToString();
 
+    private List<CardAuthorizationPendingManualReviewResponse> _pendingManualReview = new();
+    private bool _isLoadingManualReview = true;
+    private string? _manualReviewError;
+
+    private string ManualReviewTabText => _pendingManualReview.Count == 0 ? "Authorization review" : $"Authorization review ({_pendingManualReview.Count})";
+
     protected override async Task OnInitializedAsync()
     {
         await LoadPendingRegistrationsAsync();
@@ -551,6 +618,7 @@
         await LoadCardsAwaitingFulfillmentAsync();
         await LoadUsersAsync();
         await LoadProviderHealthAsync();
+        await LoadManualReviewAsync();
     }
 
     private async Task LoadPendingRegistrationsAsync()
@@ -835,6 +903,38 @@
         _sourceBalance = null;
         _targetBalance = null;
         Snackbar.Add("Manual transfer posted.", Severity.Success);
+    }
+
+    private async Task LoadManualReviewAsync()
+    {
+        _isLoadingManualReview = true;
+        _manualReviewError = null;
+
+        var result = await AdminApiClient.ListCardAuthorizationsPendingManualReviewAsync();
+
+        _isLoadingManualReview = false;
+
+        if (!result.IsSuccess)
+        {
+            _manualReviewError = result.ErrorMessage;
+            return;
+        }
+
+        _pendingManualReview = result.Value!.OrderBy(r => r.ManualReviewFlaggedAt).ToList();
+    }
+
+    private async Task ResolveManualReviewAsync(CardAuthorizationPendingManualReviewResponse item)
+    {
+        var result = await AdminApiClient.ResolveCardAuthorizationManualReviewAsync(item.CardAuthorizationId);
+
+        if (!result.IsSuccess)
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Failed to resolve.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"{item.CardholderName}'s authorization was marked resolved.", Severity.Success);
+        await LoadManualReviewAsync();
     }
 
     private static Color StatusColor(string status) => status switch

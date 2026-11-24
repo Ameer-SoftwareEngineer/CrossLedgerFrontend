@@ -84,3 +84,15 @@ public sealed record CardFulfillmentSummaryResponse(
     DateTimeOffset IssuedAt);
 
 public sealed record MarkCardShippedRequest(string Carrier, string TrackingNumber);
+
+public sealed record CardAuthorizationPendingManualReviewResponse(
+    Guid CardAuthorizationId,
+    Guid CardId,
+    string CardholderName,
+    string MerchantName,
+    decimal Amount,
+    string CurrencyCode,
+    decimal AttemptedCaptureAmount,
+    string ManualReviewReason,
+    DateTimeOffset DecidedAt,
+    DateTimeOffset ManualReviewFlaggedAt);

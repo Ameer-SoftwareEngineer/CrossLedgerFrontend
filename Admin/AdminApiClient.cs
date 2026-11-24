@@ -278,6 +278,38 @@ public sealed class AdminApiClient
         return ApiResult.Success();
     }
 
+    public async Task<ApiResult<IReadOnlyList<CardAuthorizationPendingManualReviewResponse>>> ListCardAuthorizationsPendingManualReviewAsync()
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.GetAsync("api/v1/admin/cards/authorizations/pending-manual-review"));
+        if (response is null)
+            return ApiResult<IReadOnlyList<CardAuthorizationPendingManualReviewResponse>>.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult<IReadOnlyList<CardAuthorizationPendingManualReviewResponse>>.Failed(code, message);
+        }
+
+        var pending = await response.Content.ReadFromJsonAsync<List<CardAuthorizationPendingManualReviewResponse>>()
+            ?? new List<CardAuthorizationPendingManualReviewResponse>();
+        return ApiResult<IReadOnlyList<CardAuthorizationPendingManualReviewResponse>>.Success(pending);
+    }
+
+    public async Task<ApiResult> ResolveCardAuthorizationManualReviewAsync(Guid cardAuthorizationId)
+    {
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsync($"api/v1/admin/cards/authorizations/{cardAuthorizationId}/resolve-manual-review", null));
+        if (response is null)
+            return ApiResult.Failed(null, HttpCall.NetworkErrorMessage);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var (code, message) = await ApiErrorReader.ReadAsync(response);
+            return ApiResult.Failed(code, message);
+        }
+
+        return ApiResult.Success();
+    }
+
     public async Task<ApiResult<WalletBalanceResponse>> GetWalletBalanceAsync(Guid walletId)
     {
         var response = await HttpCall.TrySendAsync(() => _http.GetAsync($"api/v1/admin/wallets/{walletId}/balance"));
