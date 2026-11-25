@@ -21,7 +21,8 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-const string ApiBaseAddress = ApiConfig.BaseAddress;
+ApiConfig.BaseAddress = builder.Configuration["Api:BaseAddress"] ?? ApiConfig.BaseAddress;
+var apiBaseAddress = ApiConfig.BaseAddress;
 
 builder.Services.AddMudServices();
 builder.Services.AddBlazoredLocalStorage();
@@ -36,8 +37,8 @@ builder.Services.AddScoped<AuthorizationMessageHandler>();
 // Two named clients: "Anonymous" for register/login (must never carry a stale token),
 // "Authenticated" for everything else (AuthorizationMessageHandler attaches the current
 // one automatically, so feature pages never touch the Authorization header themselves).
-builder.Services.AddHttpClient("Anonymous", client => client.BaseAddress = new Uri(ApiBaseAddress));
-builder.Services.AddHttpClient("Authenticated", client => client.BaseAddress = new Uri(ApiBaseAddress))
+builder.Services.AddHttpClient("Anonymous", client => client.BaseAddress = new Uri(apiBaseAddress));
+builder.Services.AddHttpClient("Authenticated", client => client.BaseAddress = new Uri(apiBaseAddress))
     .AddHttpMessageHandler<AuthorizationMessageHandler>();
 
 builder.Services.AddScoped(sp => sp.GetRequiredService<IHttpClientFactory>().CreateClient("Authenticated"));

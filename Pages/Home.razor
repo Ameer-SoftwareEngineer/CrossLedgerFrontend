@@ -215,10 +215,7 @@ else
         _isCreating = true;
         _error = null;
 
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var ownerId = Guid.Parse(authState.User.FindFirst("sub")!.Value);
-
-        var result = await WalletApiClient.CreateAsync(ownerId, _newCurrency);
+        var result = await WalletApiClient.CreateAsync(_newCurrency);
         _isCreating = false;
 
         if (!result.IsSuccess)

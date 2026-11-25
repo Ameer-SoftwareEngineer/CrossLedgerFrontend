@@ -5,7 +5,6 @@
 @inject WalletChangeNotifier WalletChangeNotifier
 @inject QuoteApiClient QuoteApiClient
 @inject TransferApiClient TransferApiClient
-@inject AuthenticationStateProvider AuthStateProvider
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 
@@ -240,8 +239,7 @@ else
         if (existing is not null)
             return existing.WalletId;
 
-        var ownerId = await GetOwnerIdAsync();
-        var created = await WalletApiClient.CreateAsync(ownerId, _quote!.ToCurrency);
+        var created = await WalletApiClient.CreateAsync(_quote!.ToCurrency);
         if (!created.IsSuccess)
         {
             _error = created.ErrorMessage;
@@ -259,12 +257,6 @@ else
         var result = await dialog.Result;
 
         return result is { Canceled: false } ? result.Data as string : null;
-    }
-
-    private async Task<Guid> GetOwnerIdAsync()
-    {
-        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        return Guid.Parse(authState.User.FindFirst("sub")!.Value);
     }
 
     private async Task ReloadWalletsAsync()

@@ -343,6 +343,67 @@ body {
     margin-top: 6px;
 }
 
+/* ---- Admin console tab deck: a dark-glass floating control bar, same visual
+   language as the pill sidebar and stat cards - the tab CONTENT below it stays on
+   the existing light theme (tables, forms, alerts) rather than a full dark-mode
+   switch, so MudAlert/MudPaper/form controls inside each tab keep working exactly
+   as already styled everywhere else in the app. ---- */
+.cl-admin-shell .mud-tabs-tabbar {
+    background: linear-gradient(145deg, rgba(22, 33, 58, 0.92) 0%, rgba(11, 18, 32, 0.96) 100%) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 20px !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 16px 32px -16px rgba(0, 0, 0, 0.45);
+    padding: 6px 10px;
+}
+
+.cl-admin-shell .mud-tab {
+    color: #94A3B8 !important;
+    text-transform: none;
+    font-weight: 600;
+    transition: color 180ms ease;
+}
+
+.cl-admin-shell .mud-tab:hover {
+    color: #E2E8F0 !important;
+}
+
+.cl-admin-shell .mud-tab.mud-tab-active {
+    color: #34D399 !important;
+}
+
+.cl-admin-shell .mud-tab-slider {
+    background: linear-gradient(90deg, #10B981, #22D3EE) !important;
+    height: 3px !important;
+    border-radius: 3px;
+    box-shadow: 0 0 12px -1px rgba(16, 185, 129, 0.8);
+}
+
+/* ---- Admin tables: a refined premium polish on the existing light theme (rounded
+   container, soft brand-tinted shadow, a tinted header row, emerald-tinted hover) -
+   covers both MudSimpleTable (plain table/thead/tbody/td) and MudTable (semantic
+   mud-table-head/row/cell classes) under one shared class. ---- */
+.cl-admin-table {
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 12px 28px -18px rgba(16, 185, 129, 0.25);
+}
+
+.cl-admin-table table thead tr th,
+.cl-admin-table .mud-table-head .mud-table-cell {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(34, 211, 238, 0.06));
+    color: #0F172A;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+.cl-admin-table.mud-table-hover .mud-table-container table tbody tr:hover,
+.cl-admin-table.mud-table-hover .mud-table-row:hover {
+    background-color: rgba(16, 185, 129, 0.06) !important;
+}
+
 /* ---- Dashboard ---- */
 .cl-dash-title {
     font-weight: 800;

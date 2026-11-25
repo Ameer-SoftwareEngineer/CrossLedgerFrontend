@@ -30,9 +30,9 @@ public sealed class WalletApiClient
         return ApiResult<IReadOnlyList<WalletSummaryResponse>>.Success(wallets);
     }
 
-    public async Task<ApiResult<CreateWalletResponse>> CreateAsync(Guid ownerId, string currency)
+    public async Task<ApiResult<CreateWalletResponse>> CreateAsync(string currency)
     {
-        var response = await HttpCall.TrySendAsync(() => _http.PostAsJsonAsync("api/v1/wallets", new CreateWalletRequest(ownerId, currency)));
+        var response = await HttpCall.TrySendAsync(() => _http.PostAsJsonAsync("api/v1/wallets", new CreateWalletRequest(currency)));
         if (response is null)
             return ApiResult<CreateWalletResponse>.Failed(null, HttpCall.NetworkErrorMessage);
 

@@ -50,7 +50,7 @@
     </MudItem>
 </MudGrid>
 
-<MudTabs @bind-ActivePanelIndex="_activeTabIndex" Elevation="1" Rounded="true" PanelClass="pa-4" ApplyEffectsToContainer="true">
+<MudTabs @bind-ActivePanelIndex="_activeTabIndex" Elevation="1" Rounded="true" PanelClass="pa-4" ApplyEffectsToContainer="true" Class="cl-admin-shell">
     <MudTabPanel Text="@PendingTabText">
         @if (_isLoadingPending)
         {
@@ -66,7 +66,7 @@
         }
         else
         {
-            <MudSimpleTable Dense="true" Hover="true">
+            <MudSimpleTable Dense="true" Hover="true" Class="cl-admin-table">
                 <thead>
                     <tr>
                         <th>Name</th>
@@ -111,7 +111,7 @@
         }
         else
         {
-            <MudSimpleTable Dense="true" Hover="true">
+            <MudSimpleTable Dense="true" Hover="true" Class="cl-admin-table">
                 <thead>
                     <tr>
                         <th>Cardholder</th>
@@ -158,7 +158,7 @@
         }
         else
         {
-            <MudSimpleTable Dense="true" Hover="true">
+            <MudSimpleTable Dense="true" Hover="true" Class="cl-admin-table">
                 <thead>
                     <tr>
                         <th>Cardholder</th>
@@ -210,7 +210,7 @@
         }
         else
         {
-            <MudSimpleTable Dense="true" Hover="true">
+            <MudSimpleTable Dense="true" Hover="true" Class="cl-admin-table">
                 <thead>
                     <tr>
                         <th>Email</th>
@@ -285,7 +285,7 @@
             see the Webhook deliveries tab for the outbound side, CrossLedger's own notifications to its configured
             subscriber.
         </MudText>
-        <MudTable @ref="_webhookTable" ServerData="LoadWebhookEventsAsync" Dense="true">
+        <MudTable @ref="_webhookTable" ServerData="LoadWebhookEventsAsync" Dense="true" Class="cl-admin-table">
             <HeaderContent>
                 <MudTh>Provider</MudTh>
                 <MudTh>Event id</MudTh>
@@ -311,7 +311,7 @@
             retried with exponential backoff. Empty until Webhooks:SubscriberUrl is configured; until then every
             payout settlement/reversal is a no-op here by design, not a failure.
         </MudText>
-        <MudTable @ref="_webhookDeliveryTable" ServerData="LoadWebhookDeliveriesAsync" Dense="true">
+        <MudTable @ref="_webhookDeliveryTable" ServerData="LoadWebhookDeliveriesAsync" Dense="true" Class="cl-admin-table">
             <HeaderContent>
                 <MudTh>Event</MudTh>
                 <MudTh>Subscriber URL</MudTh>
@@ -346,7 +346,7 @@
             Every login, 2FA challenge, step-up token request and 2FA disable - success and failure alike - with the
             caller's IP and user agent (specification 6.4's full audit trail).
         </MudText>
-        <MudTable @ref="_securityEventsTable" ServerData="LoadSecurityEventsAsync" Dense="true">
+        <MudTable @ref="_securityEventsTable" ServerData="LoadSecurityEventsAsync" Dense="true" Class="cl-admin-table">
             <HeaderContent>
                 <MudTh>When</MudTh>
                 <MudTh>Event</MudTh>
@@ -401,7 +401,7 @@
                 <MudAlert Severity="Severity.Error" Class="mb-4">
                     @_imbalances.Count currenc@(_imbalances.Count == 1 ? "y is" : "ies are") out of balance.
                 </MudAlert>
-                <MudSimpleTable Dense="true">
+                <MudSimpleTable Dense="true" Class="cl-admin-table">
                     <thead>
                         <tr>
                             <th>Currency</th>
@@ -516,7 +516,7 @@
         }
         else
         {
-            <MudSimpleTable Dense="true" Hover="true">
+            <MudSimpleTable Dense="true" Hover="true" Class="cl-admin-table">
                 <thead>
                     <tr>
                         <th>Cardholder</th>
